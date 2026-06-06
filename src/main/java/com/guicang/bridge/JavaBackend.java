@@ -78,6 +78,7 @@ public class JavaBackend {
     public String getAllAssets() {
         User u = requireLogin();
         List<Asset> list = assetService.getAll(u.getId());
+        autoRenewSubscriptions(list);
         enrichAssets(list);
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("success", true);
@@ -105,6 +106,11 @@ public class JavaBackend {
             User u = requireLogin();
             Asset asset = gson.fromJson(body, Asset.class);
             asset.setUserId(u.getId());
+            // 次卡：create 前初始化累计购入次数
+            if ("STORED_TIME_CARD".equals(asset.getAssetType())) {
+                int initTotal = asset.getTotalTimes() != null ? asset.getTotalTimes() : 0;
+                asset.setCumulativePurchased(initTotal);
+            }
             Asset created = assetService.create(asset);
             // 囤货模式：创建初始采购批次
             // purchasePrice 是购入总价，批次总价直接用它，单价 = 总价 / 数量
@@ -154,14 +160,16 @@ public class JavaBackend {
     }
 
     public String archiveAsset(String id) {
-        requireLogin();
+        User u = requireLogin();
         assetService.archive(id, true);
+        try { achievementService.checkAll(u.getId()); } catch (Exception e) {}
         return gson.toJson(Map.of("success", true));
     }
 
     public String restoreAsset(String id) {
-        requireLogin();
+        User u = requireLogin();
         assetService.archive(id, false);
+        try { achievementService.checkAll(u.getId()); } catch (Exception e) {}
         return gson.toJson(Map.of("success", true));
     }
 
@@ -180,24 +188,25 @@ public class JavaBackend {
     }
 
     public String consumeStock(String body) {
-        requireLogin();
+        User u = requireLogin();
         Map<?,?> req = gson.fromJson(body, Map.class);
         String assetId = (String) req.get("assetId");
         int qty = ((Number) req.get("quantity")).intValue();
         String notes = req.get("notes") != null ? (String) req.get("notes") : "";
         UsageLog log = stockpileService.consume(assetId, qty, notes);
+        try { achievementService.checkAll(u.getId()); } catch (Exception e) {}
         return gson.toJson(Map.of("success", true, "data", log));
     }
 
     public String restock(String body) {
-        requireLogin();
+        User u = requireLogin();
         Map<?,?> req = gson.fromJson(body, Map.class);
         String assetId = (String) req.get("assetId");
         int qty = ((Number) req.get("quantity")).intValue();
         double totalPrice = ((Number) req.get("totalPrice")).doubleValue();
         PurchaseBatch batch = stockpileService.restock(assetId, qty, totalPrice);
-        // 比价反馈
         StockpileService.CompareResult cmp = stockpileService.comparePrice(assetId, batch.getUnitPrice());
+        try { achievementService.checkAll(u.getId()); } catch (Exception e) {}
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("success", true);
         res.put("batch", batch);
@@ -206,19 +215,19 @@ public class JavaBackend {
     }
 
     public String punchCard(String id) {
-        requireLogin();
+        User u = requireLogin();
         StoredCardService.PunchResult r = storedCardService.punch(id);
+        try { achievementService.checkAll(u.getId()); } catch (Exception e) {}
         return gson.toJson(Map.of("success", r.success(), "message", r.message(), "remaining", r.remaining()));
     }
 
     public String topup(String body) {
-        requireLogin();
+        User u = requireLogin();
         Map<?,?> req = gson.fromJson(body, Map.class);
         String assetId = (String) req.get("assetId");
         double amount = ((Number) req.get("amount")).doubleValue();
         int times = req.containsKey("times") ? ((Number) req.get("times")).intValue() : 0;
 
-        // 按资产类型分发到正确的充值方法
         Asset item = assetService.getById(assetId);
         Asset result;
         if ("SUBSCRIPTION_METERED".equals(item.getAssetType())) {
@@ -228,22 +237,24 @@ public class JavaBackend {
         } else {
             result = storedCardService.topupAmount(assetId, amount);
         }
+        try { achievementService.checkAll(u.getId()); } catch (Exception e) {}
         return gson.toJson(Map.of("success", true, "data", result));
     }
 
     public String spend(String body) {
-        requireLogin();
+        User u = requireLogin();
         Map<?,?> req = gson.fromJson(body, Map.class);
         String assetId = (String) req.get("assetId");
         double amount = ((Number) req.get("amount")).doubleValue();
 
-        // 按资产类型分发到正确的消费方法
         Asset item = assetService.getById(assetId);
         if ("SUBSCRIPTION_METERED".equals(item.getAssetType())) {
             StoredCardService.SpendResult r = storedCardService.spendApi(assetId, amount);
+            try { achievementService.checkAll(u.getId()); } catch (Exception e) {}
             return gson.toJson(Map.of("success", r.success(), "message", r.message(), "remainingBalance", r.remainingBalance()));
         }
         StoredCardService.SpendResult r = storedCardService.spend(assetId, amount);
+        try { achievementService.checkAll(u.getId()); } catch (Exception e) {}
         return gson.toJson(Map.of("success", r.success(), "message", r.message(), "remainingBalance", r.remainingBalance()));
     }
 
@@ -273,6 +284,7 @@ public class JavaBackend {
     public String getDashboard() {
         User u = requireLogin();
         List<Asset> all = assetService.getAll(u.getId());
+        autoRenewSubscriptions(all);
         Map<String, Object> d = new LinkedHashMap<>();
 
         // 1. 固定流速：所有周期续费统一折算为月均
@@ -338,6 +350,20 @@ public class JavaBackend {
         return gson.toJson(Map.of("success", true, "data", achievementService.getOverview(u.getId())));
     }
 
+    public String getPendingAchievements() {
+        User u = requireLogin();
+        return gson.toJson(Map.of("success", true, "data", achievementService.getPendingNotifications(u.getId())));
+    }
+
+    public String acknowledgeAchievements(String body) {
+        User u = requireLogin();
+        Map<?,?> req = gson.fromJson(body, Map.class);
+        @SuppressWarnings("unchecked")
+        List<String> ids = (List<String>) req.get("ids");
+        achievementService.acknowledgeNotifications(u.getId(), ids != null ? ids : List.of());
+        return gson.toJson(Map.of("success", true));
+    }
+
     public String getInsights() {
         User u = requireLogin();
         return gson.toJson(Map.of("success", true, "data", insightService.generate(u.getId())));
@@ -387,6 +413,19 @@ public class JavaBackend {
         User u = userService.getCurrentUser();
         if (u == null) throw new RuntimeException("未登录");
         return u;
+    }
+
+    /** 扫描资产列表中的周期续费，自动续费到期项；返回本次续费数量 */
+    private int autoRenewSubscriptions(List<Asset> list) {
+        int count = 0;
+        for (Asset a : list) {
+            String type = a.getAssetType();
+            if (type == null || !type.startsWith("SUBSCRIPTION_")
+                    || "SUBSCRIPTION_METERED".equals(type)
+                    || "SUBSCRIPTION_LIFETIME".equals(type)) continue;
+            if (subscriptionService.autoRenewIfDue(a) > 0) count++;
+        }
+        return count;
     }
 
     /** 根据资产类型生成创建历程详情 */

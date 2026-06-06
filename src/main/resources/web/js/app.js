@@ -97,8 +97,8 @@ function enrichAsset(a) {
         if (t==='SUBSCRIPTION_METERED') { a._priceHtml=`余量: <span>${(a.apiBalance||0).toFixed(2)}</span>`; a._statusHtml='<i class="fa-solid fa-circle-info" style="color:var(--muted);opacity:0.6;"></i> 按量计费提示：此服务无固定截止日，请留意消耗与额度监控。'; a._statusColor='var(--muted)'; a._showTopup=true; a._showAction=true; a._pct=Math.min(100, Math.max(5, ((a.apiBalance||0) / Math.max(a.totalCharged||1, 1)) * 100)); a._critical=false; }
         else if (t==='SUBSCRIPTION_LIFETIME') { a._priceHtml=`${price.toFixed(2)}<span style="font-size:12px;color:var(--muted);font-weight:normal;"> 买断</span>`; a._statusHtml=`<i class="fa-solid fa-infinity"></i> 永久有效 · 已陪伴 <span style="font-weight:600;">${days}</span> 天`; a._statusColor='var(--accent-green)'; a._pct=100; a._critical=false; a._showTopup=false; a._showAction=false; }
         else { const cycle=a.billingCycle==='YEARLY'?'年':a.billingCycle==='QUARTERLY'?'季':'月'; const cd=a.billingCycle==='YEARLY'?365:a.billingCycle==='QUARTERLY'?90:30; a._priceHtml=`${(a.monthlyCost||0).toFixed(2)}<span style="font-size:12px;color:var(--muted);font-weight:normal;"> / ${cycle}</span>`; a._statusHtml=days<=3?`<i class="fa-solid fa-hourglass-half"></i> ${days} 天后自动扣费`:`距离续费还有 ${days} 天`; a._statusColor=days<=3?'var(--warning)':'var(--muted)'; a._critical=days<=3; a._pct=Math.min(100,Math.max(5,(days/cd)*100)); a._showTopup=false; a._showAction=false; }
-    } else if (t==='STORED_TIME_CARD') { a._priceHtml=`<span>${a.remainingTimes||0}</span><span style="font-size:12px;color:var(--muted);font-weight:normal;"> 次剩余</span>`; a._statusHtml=`单次核算成本: ${((a.totalTopup||0)/Math.max(a.totalTimes||1,1)).toFixed(2)}`; a._statusColor='var(--muted)'; a._showTopup=true; a._showAction=true; a._pct=Math.min(100,((a.remainingTimes||0)/Math.max(a.totalTimes||1,1))*100); a._critical=false; }
-    else if (t==='STORED_AMOUNT_CARD') { a._priceHtml=`余额 <span>${(a.cardBalance||0).toFixed(2)}</span>`; a._statusHtml=`池上限 ${(a.totalTopup||0).toFixed(0)} · 已消费 ${(a.totalSpent||0).toFixed(0)}`; a._statusColor='var(--muted)'; a._showTopup=true; a._showAction=true; a._pct=Math.min(100, Math.max(5, ((a.cardBalance||0) / Math.max(a.totalTopup||1, 1)) * 100)); a._critical=false; }
+    } else if (t==='STORED_TIME_CARD') { a._priceHtml=`<span>${a.remainingTimes||0}</span><span style="font-size:12px;color:var(--muted);font-weight:normal;"> 次剩余</span>`; const cumPunched = (a.totalSpent!=null)?a.totalSpent:Math.max(0,(a.totalTimes||0)-(a.remainingTimes||0)); const cumPurchased = a.cumulativePurchased!=null?a.cumulativePurchased:((a.remainingTimes||0) + cumPunched); const unitCost = ((a.totalTopup||0)/Math.max(cumPurchased,1)).toFixed(2); a._statusHtml=`累计购入 ${cumPurchased} 次 · 累计核销 ${cumPunched} · 单次成本 ${unitCost}`; a._statusColor='var(--muted)'; a._showTopup=true; a._showAction=true; a._pct=Math.min(100,Math.max(5,((a.remainingTimes||0)/Math.max(a.totalTimes||1,1))*100)); a._critical=false; }
+    else if (t==='STORED_AMOUNT_CARD') { a._priceHtml=`余额 <span>${(a.cardBalance||0).toFixed(2)}</span>`; a._statusHtml=`池上限 ${(a.totalTopup||0).toFixed(0)} · 累计消费 ${(a.totalSpent||0).toFixed(0)}`; a._statusColor='var(--muted)'; a._showTopup=true; a._showAction=true; a._pct=Math.min(100, Math.max(5, ((a.cardBalance||0) / Math.max(a.totalTopup||1, 1)) * 100)); a._critical=false; }
 }
 
 // ==================== 核心：全量数据加载（防御式，单API失败不影响其他） ====================
@@ -121,8 +121,17 @@ async function loadAll() {
         list.forEach(enrichAsset);
         state.archived = list;
     }
-    // achievements
-    if (ok(achr)) { state.achievements = [...achr.value.data]; }
+    // achievements — 从后端获取已达成但未播报的成就来弹 toast
+    if (ok(achr)) {
+        state.achievements = [...achr.value.data];
+    }
+    try {
+        const pending = await api.getPendingAchievements();
+        if (pending.success && pending.data && pending.data.length > 0) {
+            pending.data.forEach(ac => showToast(ac.name, ac.description||'成就解锁！', 'success'));
+            await api.acknowledgeAchievements(pending.data.map(a => a.id));
+        }
+    } catch (e) { /* 非关键 */ }
     // insights
     if (ok(insr)) { state.insights = [...insr.value.data]; }
     // dashboard
@@ -175,7 +184,7 @@ function progressColor(a) {
 }
 
 // ==================== 消息常量 ====================
-const COAT_MSGS = { start:'它在衣柜角落睡得有点久了，下一个雨天，带它一起去看看世界吧。', first:'太棒了，开启了第一次重逢！它正披在肩上为你遮风挡雨。', warm:'感知到它高频陪伴的温度了吗？单次相遇成本已经开始平稳下降，谢谢你没有让它在角落里孤单落灰。', good:'消费泡沫已被成功斩断一半！每一次使用，都是你对盲目消费主义的一次优雅胜诉。', great:'它默默地融入了你的日常，成为了不用言语的底色。你正在用克制和珍惜，践行生活的断舍离美学。', perfect:'你们已经是形影不离的老朋友了，每一次使用都在榨干它当初昂贵的消费泡沫，真正赋予了它不负相遇的圆满。' };
+const COAT_MSGS = { start:'它在角落睡得有点久了，下一个好日子，带它一起去看看世界吧。', first:'太棒了，开启了第一次重逢！它正从标签变成你生活里真实的一部分。', warm:'感知到它高频陪伴的温度了吗？谢谢你没有让它在角落里孤单落灰。', good:'它渐渐成了你日常里的一部分。每一次使用，都是你对盲目消费主义的一次优雅胜诉。', great:'它默默地融入了你生活的底色。你正在用克制和珍惜，回应当初的心动选择。', perfect:'你们已经是形影不离的老朋友了。它见过你凌晨出门，也陪你在深夜里发过呆，达成了真正不负相遇的圆满。' };
 const COLLECT_STATUS = ['日常使用中', '完美珍藏中', '计划转手中'];
 const COLLECT_ICONS = { '日常使用中':'fa-solid fa-check-circle', '完美珍藏中':'fa-solid fa-gem', '计划转手中':'fa-solid fa-share' };
 const COLLECT_COLORS = { '日常使用中':{bg:'rgba(212,199,176,0.06)',c:'var(--text-main)'}, '完美珍藏中':{bg:'rgba(166,82,82,0.08)',c:'var(--accent-rose)'}, '计划转手中':{bg:'rgba(207,168,122,0.08)',c:'var(--accent-amber)'} };
@@ -203,7 +212,7 @@ const achGroups = computed(() => {
 // ==================== 表单数据 ====================
 const f_name = ref(''); const f_price = ref(''); const f_date = ref(new Date().toISOString().slice(0,10));
 const f_icon = ref(''); const f_notes = ref('');
-const f_dim = ref('perDay'); const f_collectStatus = ref('日常使用中');
+const f_dim = ref('perDay'); const f_usageCount = ref(0); const f_collectStatus = ref('日常使用中');
 const f_stockQty = ref(10); const f_stockSafe = ref(2); const f_stockUnit = ref('');
 const f_storeType = ref('time'); const f_cardTimes = ref(20); const f_cardConsumed = ref(0); const f_cardAmount = ref(''); const f_cardBalance = ref(''); const f_cardTopup = ref('');
 const f_subType = ref('fixed'); const f_subCycle = ref('按月续费'); const f_subNextDate = ref(new Date().toISOString().slice(0,10)); const f_apiBalance = ref(100);
@@ -222,7 +231,7 @@ function syncPriceDefaults() {
     if (!_dirty.has('cardTopup')) f_cardTopup.value = p;
     if (!_dirty.has('apiBalance')) f_apiBalance.value = p;
 }
-function resetForm() { f_name.value=''; f_price.value=''; f_date.value=new Date().toISOString().slice(0,10); f_icon.value=''; f_notes.value=''; f_err.value=''; f_stockUnit.value=''; _dirty.clear(); }
+function resetForm() { f_name.value=''; f_price.value=''; f_date.value=new Date().toISOString().slice(0,10); f_icon.value=''; f_notes.value=''; f_err.value=''; f_stockUnit.value=''; f_usageCount.value=0; _dirty.clear(); }
 function updateSubNextDate() {
     const d = f_date.value ? new Date(f_date.value + 'T00:00:00') : new Date();
     if (f_subCycle.value.includes('季')) d.setDate(d.getDate() + 90);
@@ -245,7 +254,7 @@ async function openEditAsset(a) {
     f_icon.value = latest.icon||'';
     f_notes.value = latest.notes||'';
     // 类型专属字段 —— 全部从 DB 取实时值回填
-    if (t==='LONG_TERM_PER_USE') { f_dim.value = 'perUse'; }
+    if (t==='LONG_TERM_PER_USE') { f_dim.value = 'perUse'; f_usageCount.value = latest.usageCount||0; }
     else if (t==='LONG_TERM_PER_DAY') { f_dim.value = 'perDay'; }
     else if (t==='COLLECTIBLE') { f_collectStatus.value = latest.collectStatus||'日常使用中'; }
     else if (t==='STOCKPILE') { f_stockQty.value = latest.currentStock||0; f_stockSafe.value = latest.safetyStock||0; }
@@ -265,7 +274,6 @@ async function doCheckIn(a) {
     const r = await api.checkIn(a.id);
     if (r.success) {
         await loadAll();
-        if (r.new_achievements?.length) r.new_achievements.forEach(ac => showToast(ac.name, ac.description||'成就解锁！', 'success'));
     } else { showToast('操作失败', r.message || '打卡未成功', 'warning'); }
 }
 async function doConsume(a) {
@@ -348,7 +356,7 @@ async function submitAddAsset() {
     if (!f_name.value.trim()) { f_err.value = '请输入名称'; return; }
     const payload = { name: f_name.value.trim(), purchasePrice: parseFloat(f_price.value)||0, purchaseDate: f_date.value, icon: f_icon.value, notes: f_notes.value };
     const m = addMode.value;
-    if (m==='longterm') payload.assetType = f_dim.value==='perUse'?'LONG_TERM_PER_USE':'LONG_TERM_PER_DAY';
+    if (m==='longterm') { payload.assetType = f_dim.value==='perUse'?'LONG_TERM_PER_USE':'LONG_TERM_PER_DAY'; if (f_dim.value==='perUse') payload.usageCount = parseInt(f_usageCount.value)||0; }
     else if (m==='stockpile') { payload.assetType='STOCKPILE'; payload.currentStock=parseFloat(f_stockQty.value)||0; payload.safetyStock=parseFloat(f_stockSafe.value)||0; payload.notes=(f_stockUnit.value?'单位:'+f_stockUnit.value+'; ':'')+(f_notes.value||''); }
     else if (m==='recordOnly') { payload.assetType='COLLECTIBLE'; payload.collectStatus=f_collectStatus.value; }
     else if (m==='storedCard') { payload.assetType=f_storeType.value==='time'?'STORED_TIME_CARD':'STORED_AMOUNT_CARD'; const pp=parseFloat(f_price.value)||0; if(f_storeType.value==='time'){payload.totalTimes=parseInt(f_cardTimes.value)||0; const consumed=parseInt(f_cardConsumed.value)||0; payload.remainingTimes=Math.max(0,(payload.totalTimes||0)-consumed); payload.totalTopup=parseFloat(f_cardAmount.value)||pp;}else{payload.cardBalance=parseFloat(f_cardBalance.value)||pp; payload.totalTopup=parseFloat(f_cardTopup.value)||pp;} }
@@ -446,7 +454,7 @@ const app = createApp({
 
         return {
             phase, view, drawerOpen, authMode, authErr, auth_account, auth_password, auth_username, auth_nickname, auth_confirm,
-            addDrawerOpen, addMode, f_name, f_price, f_date, f_icon, f_notes, f_dim, f_collectStatus, f_stockQty, f_stockSafe, f_stockUnit,
+            addDrawerOpen, addMode, f_name, f_price, f_date, f_icon, f_notes, f_dim, f_usageCount, f_collectStatus, f_stockQty, f_stockSafe, f_stockUnit,
             f_storeType, f_cardTimes, f_cardConsumed, f_cardAmount, f_cardBalance, f_cardTopup, f_subType, f_subCycle, f_subNextDate, f_apiBalance, f_err,
             confirmOpen, confirmType, confirmTarget, formModalOpen, formModalMode, formModalTitle, fm_amount, fm_qty,
             historyOpen, historyLogs, historyAssetId, editAsset, toastList, ICONS, COLLECT_STATUS, COLLECT_ICONS, COLLECT_COLORS,

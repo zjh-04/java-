@@ -103,7 +103,9 @@ public class App {
 
                 // 仪表盘 / 成就 / 洞察
                 case "/api/dashboard"    -> backend.getDashboard();
-                case "/api/achievements" -> backend.getAchievements();
+                case "/api/achievements"          -> backend.getAchievements();
+                case "/api/achievements/pending" -> backend.getPendingAchievements();
+                case "/api/achievements/acknowledge" -> backend.acknowledgeAchievements(body);
                 case "/api/insights"     -> backend.getInsights();
 
                 // 导出

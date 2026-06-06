@@ -83,8 +83,8 @@
                     <button class="quick-action-btn" @click="openAddDrawer('digitalSub')" title="数字订阅"><i class="fa-solid fa-microchip"></i></button>
                 </div></div>
             <div class="dashboard-row">
-                <div class="dash-card"><div style="font-size:13px;"><i class="fa-solid fa-rotate" style="color:var(--primary);margin-right:6px;"></i>数字化固定流速</div><div class="value">¥ {{ (dashboard.monthlyFlow||0).toFixed(2) }}<span style="font-size:14px;color:var(--muted);font-weight:normal;"> / 月</span></div><p style="font-size:12px;color:var(--muted);margin:0;">有订阅服务正在陪伴</p></div>
-                <div class="dash-card"><div style="font-size:13px;"><i class="fa-solid fa-droplet" style="color:var(--primary);margin-right:6px;"></i>细水长流均摊价值</div><div class="value">¥ {{ (dashboard.dailyAvg||0).toFixed(2) }}<span style="font-size:14px;color:var(--muted);font-weight:normal;"> / 日</span></div><p style="font-size:12px;color:var(--muted);margin:0;">全部长期物品（购入价 ÷ 已陪伴天数）的平均值</p></div>
+                <div class="dash-card"><div style="font-size:13px;"><i class="fa-solid fa-rotate" style="color:var(--primary);margin-right:6px;"></i>数字化固定流速</div><div class="value">¥ {{ (dashboard.monthlyFlow||0).toFixed(2) }}<span style="font-size:14px;color:var(--muted);font-weight:normal;"> / 月</span></div><p style="font-size:12px;color:var(--muted);margin:0;" v-if="dashboard.nearestRenewalDays >= 0">固定流出的订阅支出 · 最近一笔在 <span style="color:var(--primary);font-weight:600;">{{ dashboard.nearestRenewalDays }}</span> 天后</p><p style="font-size:12px;color:var(--muted);margin:0;" v-else>暂无周期续费订阅</p></div>
+                <div class="dash-card"><div style="font-size:13px;"><i class="fa-solid fa-droplet" style="color:var(--primary);margin-right:6px;"></i>细水长流均摊价值</div><div class="value">¥ {{ (dashboard.dailyAvg||0).toFixed(2) }}<span style="font-size:14px;color:var(--muted);font-weight:normal;"> / 日</span></div><p style="font-size:12px;color:var(--muted);margin:0;">全部长期物品购入价/已陪伴天数的平均值</p></div>
                 <div class="dash-card"><div style="font-size:13px;"><i class="fa-solid fa-calculator" style="color:var(--primary);margin-right:6px;"></i>按量计费财务盘点</div><div class="value">¥ {{ (dashboard.quantPool||0).toFixed(2) }}</div><p style="font-size:12px;color:var(--muted);margin:0;">按量计费数字产品累计注资总额</p></div>
             </div>
             <div class="dash-card" style="margin-bottom:24px;"><div style="font-size:13px;margin-bottom:12px;"><i class="fa-solid fa-layer-group" style="color:var(--primary);margin-right:6px;"></i>会员总览</div>
@@ -96,13 +96,13 @@
                     <div><div style="font-size:20px;font-weight:700;">{{ lifetime.length }}</div><div style="font-size:10px;color:var(--muted);">终身制订阅</div></div>
                 </div></div>
             <div class="timeline-container"><h3>今日物语</h3>
-                <div class="timeline-item" v-for="(item,i) in insights" :key="i"><div class="timeline-icon" :class="item.type==='warning'?'warning':'success'"></div><div class="timeline-content"><strong>{{ item.title }}：</strong>{{ item.content }}</div></div>
+                <div class="timeline-item" v-for="(item,i) in insights" :key="i"><div class="timeline-icon" :class="item.type==='warning'?'warning':'success'"></div><div class="timeline-content"><strong>{{ item.title }}：</strong><span v-html="item.content"></span></div></div>
             </div>
         </div>
 
         <!-- 物尽其用 -->
         <div v-show="view==='physical'" class="view-section active">
-            <div class="view-header"><div class="view-title"><h2>物尽其用</h2><p>打卡记录每一天，不负相遇，拒绝消费焦虑 · <span style="color:var(--primary);">{{ physical.length }}</span> 件</p></div><button class="btn-primary" @click="openAddDrawer('longterm')"><i class="fa-solid fa-plus"></i> 添置新物</button></div>
+            <div class="view-header"><div class="view-title"><h2>物尽其用</h2><p>打卡记录每一天，长久相伴，不负相遇 · <span style="color:var(--primary);">{{ physical.length }}</span> 件</p></div><button class="btn-primary" @click="openAddDrawer('longterm')"><i class="fa-solid fa-plus"></i> 添置新物</button></div>
             <div class="items-grid" v-if="physical.length">
                 <div v-for="a in physical" :key="a.id" class="asset-card" :data-category="catOf(a)" :style="{borderColor:borderOf(a)}">
                     <div class="card-meta" style="cursor:pointer;" title="双击编辑元数据" @dblclick="openEditAsset(a)">
@@ -125,7 +125,7 @@
                     </template>
                     <!-- 收藏 -->
                     <template v-else-if="a.assetType==='COLLECTIBLE'">
-                        <p style="font-size:13px;color:var(--muted);margin:0 0 12px 0;min-height:36px;">它静静地躺在首饰盒里，每一次目光停留都是对它的珍视。</p>
+                        <p style="font-size:13px;color:var(--muted);margin:0 0 12px 0;min-height:36px;">每一次目光停留，都像是和自己的一次小小确认。</p>
                         <div class="card-action-row"><div style="display:flex;gap:6px;"><button class="btn-secondary-sm" @click="openHistory(a)"><i class="fa-solid fa-clock-rotate-left"></i></button><button class="btn-secondary-sm" style="color:var(--warning);" @click="openConfirm('archive',a)"><i class="fa-solid fa-box-archive"></i></button><button class="btn-secondary-sm" style="color:var(--danger);" @click="openConfirm('delete',a)"><i class="fa-solid fa-trash-can"></i></button></div></div>
                     </template>
                     <!-- 囤货 -->
@@ -169,10 +169,14 @@
                     <div class="ach-category-title">{{ g.cat }}</div>
                     <div v-for="ach in g.items" :key="ach.id" class="achievement-card" :class="{unlocked:ach.completed,locked:!ach.completed}">
                         <div class="ach-icon"><i :class="(ach.icon&&ach.icon.includes(' ')?ach.icon:'fa-solid '+(ach.icon||'fa-trophy'))"></i></div>
-                        <div class="ach-name">{{ ach.name }}</div>
-                        <div class="ach-desc">{{ ach.description }}</div>
-                        <div class="ach-progress-bar"><div class="ach-progress-inner" :style="{width:(ach.goal>0?Math.min(100,(ach.current||0)/ach.goal*100):0)+'%'}"></div></div>
-                        <div class="ach-progress-text">{{ ach.completed ? (ach.completedDate||'已解锁') : (ach.current||0)+'/'+ach.goal }}</div>
+                        <div>
+                            <div class="ach-name">{{ ach.name }}</div>
+                            <div class="ach-desc">{{ ach.description }}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div class="ach-progress-bar"><div class="ach-progress-inner" :style="{width:(ach.goal>0?Math.min(100,(ach.current||0)/ach.goal*100):0)+'%'}"></div></div>
+                            <div class="ach-progress-text" v-html="ach.completed ? '<i class=\'fa-solid fa-circle-check\'></i> '+(ach.completedDate||'') : (ach.current||0)+'/'+ach.goal"></div>
+                        </div>
                     </div>
                 </template>
             </div>
@@ -212,18 +216,18 @@
     <div class="form-group"><label>类型</label>
         <div v-if="!editAsset" class="segmented-control">
         <div class="segment-btn" :class="{active:addMode==='longterm'}" @click="addMode='longterm';f_icon='fa-solid fa-box'">细水长流</div>
-        <div class="segment-btn" :class="{active:addMode==='stockpile'}" @click="addMode='stockpile';f_icon='fa-solid fa-box'">储备幸福</div>
+        <div class="segment-btn" :class="{active:addMode==='stockpile'}" @click="addMode='stockpile';f_icon='fa-solid fa-box'">日常储备</div>
         <div class="segment-btn" :class="{active:addMode==='recordOnly'}" @click="addMode='recordOnly';f_icon='fa-solid fa-gem'">收藏状态</div>
         <div class="segment-btn" :class="{active:addMode==='storedCard'}" @click="addMode='storedCard';f_icon='fa-solid fa-credit-card'">储值卡</div>
         <div class="segment-btn" :class="{active:addMode==='digitalSub'}" @click="addMode='digitalSub';f_icon='fa-solid fa-microchip'">数字化订阅</div>
     </div>
         <div v-else style="padding:10px 14px;color:var(--text-light);font-size:13px;background:var(--input-bg);border-radius:8px;border:1.5px solid var(--primary-dark);">
             <i class="fa-solid fa-lock" style="color:var(--muted);margin-right:8px;font-size:11px;"></i>
-            {{ addMode==='longterm'?'细水长流':addMode==='stockpile'?'储备幸福':addMode==='recordOnly'?'收藏状态':addMode==='storedCard'?'储值卡':addMode==='digitalSub'?'数字化订阅':'' }}
+            {{ addMode==='longterm'?'细水长流':addMode==='stockpile'?'日常储备':addMode==='recordOnly'?'收藏状态':addMode==='storedCard'?'储值卡':addMode==='digitalSub'?'数字化订阅':'' }}
             <span style="font-size:10px;color:var(--muted);margin-left:8px;">(不可修改)</span>
         </div>
     </div>
-    <div v-show="addMode==='longterm'"><div class="form-group"><label>分摊维度</label><div v-if="!editAsset" style="display:flex;gap:20px;font-size:13px;margin-top:4px;"><label style="cursor:pointer;color:var(--text-light)"><input type="radio" v-model="f_dim" value="perDay"> 按天数</label><label style="cursor:pointer;color:var(--text-light)"><input type="radio" v-model="f_dim" value="perUse"> 按次数</label></div><div v-else style="padding:6px 0;color:var(--muted);font-size:12px;"><i class="fa-solid fa-lock" style="margin-right:6px;font-size:10px;"></i>{{ f_dim==='perDay'?'按天数自动均摊':'按使用次数分摊' }}（不可更改）</div></div></div>
+    <div v-show="addMode==='longterm'"><div class="form-group"><label>分摊维度</label><div v-if="!editAsset" style="display:flex;gap:20px;font-size:13px;margin-top:4px;"><label style="cursor:pointer;color:var(--text-light)"><input type="radio" v-model="f_dim" value="perDay"> 按天数</label><label style="cursor:pointer;color:var(--text-light)"><input type="radio" v-model="f_dim" value="perUse"> 按次数</label></div><div v-else style="padding:6px 0;color:var(--muted);font-size:12px;"><i class="fa-solid fa-lock" style="margin-right:6px;font-size:10px;"></i>{{ f_dim==='perDay'?'按天数自动均摊':'按使用次数分摊' }}（不可更改）</div></div><div class="form-group" v-if="f_dim==='perUse'"><label>已使用次数</label><input type="number" class="form-control" v-model="f_usageCount" placeholder="0" min="0"></div></div>
     <div v-show="addMode==='recordOnly'"><div class="form-group"><label>初始状态</label><select v-if="!editAsset" class="form-control" v-model="f_collectStatus"><option v-for="s in COLLECT_STATUS" :key="s" :value="s">{{ s }}</option></select><div v-else style="padding:6px 0;color:var(--muted);font-size:12px;"><i class="fa-solid fa-lock" style="margin-right:6px;font-size:10px;"></i>{{ f_collectStatus }}（不可更改）</div></div><p style="font-size:12px;color:var(--muted);line-height:1.5;margin:0;"><i class="fa-solid fa-circle-info" style="color:var(--primary);margin-right:4px;"></i>收藏状态不计算成本分摊，纯粹登记资产与陪伴天数。卡片右上角标签可随时切换。</p></div>
     <div v-show="addMode==='stockpile'">
         <div class="form-row"><div class="form-group"><label>初始库存</label><input type="number" class="form-control" v-model="f_stockQty" placeholder="手上有几件？"></div><div class="form-group"><label>单位计量</label><input type="text" class="form-control" v-model="f_stockUnit" list="unitOptions" placeholder="箱 / 件 / 包..."></div></div>

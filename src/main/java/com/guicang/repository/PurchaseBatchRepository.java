@@ -10,7 +10,7 @@ import java.util.List;
 public class PurchaseBatchRepository {
 
     public List<PurchaseBatch> findByAsset(String assetId) {
-        String sql = "SELECT * FROM purchase_batches WHERE asset_id = ? ORDER BY batch_date DESC";
+        String sql = "SELECT * FROM purchase_batches WHERE asset_id = ? ORDER BY batch_date ASC";
         List<PurchaseBatch> list = new ArrayList<>();
         Connection c = DatabaseConfig.getConnection();
         try (

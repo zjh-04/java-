@@ -22,7 +22,12 @@ public class AchievementService {
         List<Asset> all = assetRepo.findByUser(userId);
 
         int total = all.size();
-        double totalValue = all.stream().mapToDouble(Asset::getPurchasePrice).sum();
+        double totalValue = all.stream().mapToDouble(a -> {
+            double v = a.getPurchasePrice();
+            if (a.getTotalTopup() != null) v += a.getTotalTopup();
+            if (a.getTotalCharged() != null) v += a.getTotalCharged();
+            return v;
+        }).sum();
         long cats = all.stream().map(Asset::getCategory).filter(Objects::nonNull).distinct().count();
 
         long longTermPerUse = countType(all, "LONG_TERM_PER_USE");
@@ -33,7 +38,7 @@ public class AchievementService {
                 + countType(all, "SUBSCRIPTION_YEARLY") + countType(all, "SUBSCRIPTION_METERED")
                 + countType(all, "SUBSCRIPTION_LIFETIME");
         long storedCards = countType(all, "STORED_TIME_CARD") + countType(all, "STORED_AMOUNT_CARD");
-        long archived = all.stream().filter(a -> a.getIsArchived() == 1).count();
+        long archived = assetRepo.findArchived(userId).size();
 
         // 打卡相关
         int totalCheckIns = all.stream()
@@ -64,12 +69,39 @@ public class AchievementService {
 
         // 储备幸福
         update(userId, "a11", stockpile >= 1 ? 1 : 0);
-        update(userId, "a12", hasRestock(userId) ? 1 : 0);
+
+        // a12 满载而归 + a16 温柔相遇 + a17 砍价高手 + a35 高价也从容：从采购批次计算
+        // repository 已按 batch_date ASC 排序，第一条即初始创建批次
+        com.guicang.repository.PurchaseBatchRepository batchRepo = new com.guicang.repository.PurchaseBatchRepository();
+        int totalRestocks = 0;
+        int lowPriceCount = 0;
+        int highPriceCount = 0;
+        for (Asset sa : all) {
+            if (!"STOCKPILE".equals(sa.getAssetType())) continue;
+            var batches = batchRepo.findByAsset(sa.getId());
+            if (batches.isEmpty()) continue;
+            double runningMin = Double.MAX_VALUE, runningMax = 0;
+            boolean first = true;
+            for (com.guicang.model.PurchaseBatch b : batches) {
+                double up = b.getUnitPrice();
+                if (first) {
+                    runningMin = up;
+                    runningMax = up;
+                    first = false;
+                    continue;
+                }
+                totalRestocks++;
+                if (up < runningMin) { lowPriceCount++; runningMin = up; }
+                if (up > runningMax) { highPriceCount++; runningMax = up; }
+            }
+        }
+        update(userId, "a12", totalRestocks >= 1 ? 1 : 0);
         update(userId, "a13", hasLowStock(all) ? 1 : 0);
         update(userId, "a14", hasEmptyStock(all) ? 1 : 0);
         update(userId, "a15", stockpile / 3.0);
-        update(userId, "a16", 1); // 简化：假设触发过
-        update(userId, "a17", 3); // 简化
+        update(userId, "a16", lowPriceCount >= 1 ? 1 : 0);
+        update(userId, "a17", lowPriceCount / 3.0);
+        update(userId, "a35", highPriceCount >= 1 ? 1 : 0);
 
         // 收藏纪念
         update(userId, "a18", collectible >= 1 ? 1 : 0);
@@ -95,7 +127,13 @@ public class AchievementService {
         update(userId, "a29", totalValue / 50000.0);
         update(userId, "a30", (longTermPerUse + longTermPerDay > 0 && subscriptions > 0 && collectible > 0 ? 3 : 0) / 3.0);
         update(userId, "a31", archived > 0 ? 1 : 0);
-        update(userId, "a32", cats / 5.0);
+        // a32 全面掌控：实体(细水长流) + 囤货 + 收藏 + 数字订阅 + 储值卡 = 5 种全有
+        long assetTypeKinds = (longTermPerUse > 0 || longTermPerDay > 0 ? 1 : 0)
+                + (stockpile > 0 ? 1 : 0)
+                + (collectible > 0 ? 1 : 0)
+                + (subscriptions > 0 ? 1 : 0)
+                + (storedCards > 0 ? 1 : 0);
+        update(userId, "a32", assetTypeKinds / 5.0);
 
         // 里程碑
         boolean costUnder1 = all.stream()
@@ -107,7 +145,6 @@ public class AchievementService {
                 .count() >= 3;
         update(userId, "a33", costUnder1 ? 1 : 0);
         update(userId, "a34", costUnder10 ? 1 : 0);
-        update(userId, "a35", 1); // 简化
         int unlockedCount = achRepo.getCompletedCount(userId);
         update(userId, "a36", unlockedCount / 25.0);
 
@@ -131,16 +168,12 @@ public class AchievementService {
         return all.stream().filter(a -> type.equals(a.getAssetType())).count();
     }
 
-    private boolean hasRestock(int userId) {
-        return true; // 简化
-    }
-
     private boolean hasLowStock(List<Asset> all) {
         return all.stream().filter(a -> "STOCKPILE".equals(a.getAssetType()))
                 .anyMatch(a -> {
                     double s = a.getCurrentStock() != null ? a.getCurrentStock() : 0;
                     double safe = a.getSafetyStock() != null ? a.getSafetyStock() : 0;
-                    return s <= safe && s > 0;
+                    return s <= safe;
                 });
     }
 
@@ -169,11 +202,39 @@ public class AchievementService {
             m.put("category", d.getCategory());
             m.put("goal", d.getGoalValue());
             m.put("level", d.getLevel());
-            m.put("current", p != null ? p.getProgress() : 0);
+            double raw = p != null ? p.getProgress() : 0;
+            m.put("current", Math.round(raw * d.getGoalValue()));
             m.put("completed", p != null && p.isCompleted());
             m.put("completedDate", p != null ? p.getCompletedDate() : null);
             result.add(m);
         }
         return result;
+    }
+
+    /** 获取已完成但未播报的成就（用于前端弹 toast） */
+    public List<Map<String, Object>> getPendingNotifications(int userId) {
+        List<UserAchievement> unnotified = achRepo.getUnnotifiedCompleted(userId);
+        List<Achievement> defs = achRepo.getAllDefinitions();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (UserAchievement ua : unnotified) {
+            defs.stream().filter(d -> d.getId().equals(ua.getAchievementId())).findFirst().ifPresent(d -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", d.getId());
+                m.put("name", d.getName());
+                m.put("description", d.getDescription());
+                m.put("icon", d.getIcon());
+                m.put("category", d.getCategory());
+                m.put("completedDate", ua.getCompletedDate());
+                result.add(m);
+            });
+        }
+        return result;
+    }
+
+    /** 标记成就为已播报 */
+    public void acknowledgeNotifications(int userId, List<String> achievementIds) {
+        for (String id : achievementIds) {
+            achRepo.markNotified(userId, id);
+        }
     }
 }

@@ -59,6 +59,9 @@ public class Asset {
     /* ===== 储值量卡 + 次卡 ===== */
     private Double  totalTopup;
 
+    /* ===== 次卡专属 ===== */
+    private Integer cumulativePurchased;
+
     /* ===== 储值量卡 ===== */
     private Double  cardBalance;
     private Double  totalSpent;
@@ -141,6 +144,9 @@ public class Asset {
 
     public Integer getTotalTimes() { return totalTimes; }
     public void setTotalTimes(Integer totalTimes) { this.totalTimes = totalTimes; }
+
+    public Integer getCumulativePurchased() { return cumulativePurchased; }
+    public void setCumulativePurchased(Integer cumulativePurchased) { this.cumulativePurchased = cumulativePurchased; }
 
     public Double getTotalTopup() { return totalTopup; }
     public void setTotalTopup(Double totalTopup) { this.totalTopup = totalTopup; }

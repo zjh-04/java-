@@ -14,9 +14,31 @@ import java.sql.Statement;
  */
 public class DatabaseConfig {
 
-    private static final String DATA_DIR  = "./data";
     private static final String DB_FILE   = "assets.db";
     private static final String SCHEMA_SQL = "/db/schema.sql";
+
+    /** 数据目录: 本地开发用 ./data, exe 分发用 %APPDATA%\Guicang\data */
+    private static final String DATA_DIR = resolveDataDir();
+
+    private static String resolveDataDir() {
+        // 本地调试：项目目录下已有 data/assets.db 则优先使用
+        Path localData = Paths.get("./data/assets.db").toAbsolutePath();
+        if (Files.exists(localData)) {
+            System.out.println("[归藏] 使用本地数据库: " + localData);
+            return "./data";
+        }
+        // 打包 exe：存到用户 AppData
+        String os = System.getProperty("os.name", "").toLowerCase();
+        String appData;
+        if (os.contains("win")) {
+            appData = System.getenv("APPDATA");
+            if (appData == null || appData.isBlank()) {
+                appData = System.getProperty("user.home");
+            }
+            return appData + "\\Guicang\\data";
+        }
+        return System.getProperty("user.home") + "/.guicang/data";
+    }
 
     private static volatile Connection connection;
     private static volatile boolean initialized = false;
@@ -102,7 +124,7 @@ public class DatabaseConfig {
                     executed++;
                 } catch (Exception e) {
                     String msg = e.getMessage();
-                    if (msg != null && (msg.contains("already exists") || msg.contains("UNIQUE constraint"))) {
+                    if (msg != null && (msg.contains("already exists") || msg.contains("UNIQUE constraint") || msg.contains("duplicate column"))) {
                         continue;
                     }
                     // 截断长 SQL 用于日志

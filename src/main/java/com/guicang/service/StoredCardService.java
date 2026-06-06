@@ -31,6 +31,9 @@ public class StoredCardService {
 
             remaining--;
             item.setRemainingTimes(remaining);
+            // totalSpent: 累记核销次数（次卡专属，永不重置）
+            double cumPunched = item.getTotalSpent() != null ? item.getTotalSpent() : 0;
+            item.setTotalSpent(cumPunched + 1);
             assetRepo.update(item);
             logRepo.insert(new UsageLog(assetId, "PUNCH", 1, 0,
                     "核销 1 次，剩余 " + remaining + " 次", DateUtil.today()));
@@ -45,19 +48,24 @@ public class StoredCardService {
         }
     }
 
-    /** 次卡充值（事务保护） */
+    /** 次卡充值（事务保护）— 模仿量卡：totalTimes 重设为进度条上限 */
     public Asset topupTimes(String assetId, double amount, int times) {
         Connection conn = DatabaseConfig.getConnection();
         try {
             conn.setAutoCommit(false);
 
             Asset item = assetRepo.findById(assetId);
-            item.setTotalTimes((item.getTotalTimes() != null ? item.getTotalTimes() : 0) + times);
-            item.setRemainingTimes((item.getRemainingTimes() != null ? item.getRemainingTimes() : 0) + times);
-            item.setTotalTopup((item.getTotalTopup() != null ? item.getTotalTopup() : 0) + amount);
+            int oldRemaining = item.getRemainingTimes() != null ? item.getRemainingTimes() : 0;
+            int newRemaining = oldRemaining + times;
+            item.setRemainingTimes(newRemaining);
+            item.setTotalTimes(newRemaining);   // 进度条上限 = 当前剩余
+            int cumPurchased = item.getCumulativePurchased() != null ? item.getCumulativePurchased() : 0;
+            item.setCumulativePurchased(cumPurchased + times);  // 累计购入次数，永不重置
+            double oldTopup = item.getTotalTopup() != null ? item.getTotalTopup() : 0;
+            item.setTotalTopup(oldTopup + amount);
             assetRepo.update(item);
             logRepo.insert(new UsageLog(assetId, "TOPUP", amount, amount / times,
-                    "充值 ¥" + amount + " 新增 " + times + " 次", DateUtil.today()));
+                    "充值 ¥" + amount + " 新增 " + times + " 次，进度条重置", DateUtil.today()));
 
             conn.commit();
             return item;

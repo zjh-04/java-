@@ -49,6 +49,7 @@ public class AchievementRepository {
                     ua.setProgress(rs.getDouble("progress"));
                     ua.setCompleted(rs.getInt("is_completed") == 1);
                     ua.setCompletedDate(rs.getString("completed_date"));
+                    ua.setNotified(rs.getInt("is_notified") == 1);
                     list.add(ua);
                 }
             }
@@ -59,13 +60,15 @@ public class AchievementRepository {
     }
 
     public void updateProgress(int userId, String achievementId, double progress) {
-        String sql = "INSERT INTO user_achievements (user_id, achievement_id, progress, is_completed, completed_date) " +
-                     "VALUES (?, ?, ?, 0, ?) " +
+        String sql = "INSERT INTO user_achievements (user_id, achievement_id, progress, is_completed, completed_date, is_notified) " +
+                     "VALUES (?, ?, ?, 0, ?, 0) " +
                      "ON CONFLICT(user_id, achievement_id) DO UPDATE SET " +
-                     "progress = MAX(user_achievements.progress, excluded.progress), " +
-                     "is_completed = CASE WHEN excluded.progress >= 1 THEN 1 ELSE user_achievements.is_completed END, " +
+                     "progress = excluded.progress, " +
+                     "is_completed = CASE WHEN excluded.progress >= 1 OR user_achievements.is_completed = 1 THEN 1 ELSE 0 END, " +
                      "completed_date = CASE WHEN excluded.progress >= 1 AND user_achievements.completed_date IS NULL " +
-                     "  THEN excluded.completed_date ELSE user_achievements.completed_date END";
+                     "  THEN excluded.completed_date ELSE user_achievements.completed_date END, " +
+                     "is_notified = CASE WHEN excluded.progress >= 1 AND user_achievements.is_completed = 0 THEN 0 " +
+                     "                   ELSE COALESCE(user_achievements.is_notified, 0) END";
         Connection c = DatabaseConfig.getConnection();
         try (
              PreparedStatement ps = c.prepareStatement(sql)) {
@@ -90,5 +93,25 @@ public class AchievementRepository {
     public int getCompletedCount(int userId) {
         return getUserAchievements(userId).stream()
                 .filter(UserAchievement::isCompleted).mapToInt(x -> 1).sum();
+    }
+
+    /** 获取已完成但未播报的成就 */
+    public List<UserAchievement> getUnnotifiedCompleted(int userId) {
+        return getUserAchievements(userId).stream()
+                .filter(ua -> ua.isCompleted() && !ua.isNotified())
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /** 标记成就为已播报 */
+    public void markNotified(int userId, String achievementId) {
+        String sql = "UPDATE user_achievements SET is_notified = 1 WHERE user_id = ? AND achievement_id = ?";
+        Connection c = DatabaseConfig.getConnection();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.setString(2, achievementId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("标记成就已播报失败", e);
+        }
     }
 }

@@ -81,6 +81,12 @@ export const getDashboard = () =>
 export const getAchievements = () =>
     request('GET', '/achievements');
 
+export const getPendingAchievements = () =>
+    request('GET', '/achievements/pending');
+
+export const acknowledgeAchievements = (ids) =>
+    request('POST', '/achievements/acknowledge', { ids });
+
 export const getInsights = () =>
     request('GET', '/insights');
 

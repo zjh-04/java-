@@ -33,6 +33,8 @@ public class AssetService {
         if (updated.getPurchasePrice() >= 0) existing.setPurchasePrice(updated.getPurchasePrice());
         if (updated.getPurchaseDate() != null && !updated.getPurchaseDate().isEmpty()) existing.setPurchaseDate(updated.getPurchaseDate());
         if (updated.getNotes() != null) existing.setNotes(updated.getNotes());
+        // 细水长流·按次
+        if (updated.getUsageCount() != null) existing.setUsageCount(updated.getUsageCount());
         // 囤货
         if (updated.getCurrentStock() != null) existing.setCurrentStock(updated.getCurrentStock());
         if (updated.getSafetyStock() != null) existing.setSafetyStock(updated.getSafetyStock());

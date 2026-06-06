@@ -143,8 +143,8 @@ public class AssetRepository {
         return "INSERT INTO assets (id, user_id, asset_type, name, icon, category, purchase_price, purchase_date, notes, " +
                "usage_count, expected_lifespan_years, current_stock, safety_stock, collect_status, " +
                "billing_cycle, monthly_cost, next_billing_date, api_balance, total_charged, " +
-               "remaining_times, total_times, total_topup, card_balance, total_spent, created_at) " +
-               "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+               "remaining_times, total_times, total_topup, card_balance, total_spent, cumulative_purchased, created_at) " +
+               "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     }
 
     private void bindInsertParams(PreparedStatement ps, Asset a) throws SQLException {
@@ -162,6 +162,7 @@ public class AssetRepository {
         setDoubleOrNull(ps, i++, a.getTotalCharged()); setIntOrNull(ps, i++, a.getRemainingTimes());
         setIntOrNull(ps, i++, a.getTotalTimes()); setDoubleOrNull(ps, i++, a.getTotalTopup());
         setDoubleOrNull(ps, i++, a.getCardBalance()); setDoubleOrNull(ps, i++, a.getTotalSpent());
+        setIntOrNull(ps, i++, a.getCumulativePurchased());
         ps.setString(i, a.getCreatedAt());
     }
 
@@ -170,6 +171,7 @@ public class AssetRepository {
                "usage_count=?, expected_lifespan_years=?, current_stock=?, safety_stock=?, collect_status=?, " +
                "billing_cycle=?, monthly_cost=?, next_billing_date=?, api_balance=?, total_charged=?, " +
                "remaining_times=?, total_times=?, total_topup=?, card_balance=?, total_spent=?, " +
+               "cumulative_purchased=?, " +
                "is_archived=?, updated_at=datetime('now') WHERE id=?";
     }
 
@@ -186,6 +188,7 @@ public class AssetRepository {
         setDoubleOrNull(ps, i++, a.getTotalCharged()); setIntOrNull(ps, i++, a.getRemainingTimes());
         setIntOrNull(ps, i++, a.getTotalTimes()); setDoubleOrNull(ps, i++, a.getTotalTopup());
         setDoubleOrNull(ps, i++, a.getCardBalance()); setDoubleOrNull(ps, i++, a.getTotalSpent());
+        setIntOrNull(ps, i++, a.getCumulativePurchased());
         ps.setInt(i++, a.getIsArchived());
         ps.setString(i, a.getId());
     }
@@ -215,6 +218,7 @@ public class AssetRepository {
         a.setTotalTopup(getDoubleOrNull(rs, "total_topup"));
         a.setCardBalance(getDoubleOrNull(rs, "card_balance"));
         a.setTotalSpent(getDoubleOrNull(rs, "total_spent"));
+        a.setCumulativePurchased(getIntOrNull(rs, "cumulative_purchased"));
 
         a.setIsArchived(rs.getInt("is_archived"));
         a.setCreatedAt(rs.getString("created_at"));

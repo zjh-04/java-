@@ -60,11 +60,17 @@ CREATE TABLE IF NOT EXISTS assets (
     card_balance    REAL,
     total_spent     REAL,
 
+    -- 次卡专属
+    cumulative_purchased INTEGER DEFAULT 0,
+
     -- 通用状态
     is_archived     INTEGER DEFAULT 0,             -- 0=正常, 1=已归档(仓库)
     created_at      TEXT,
     updated_at      TEXT
 );
+
+ALTER TABLE assets ADD COLUMN cumulative_purchased INTEGER DEFAULT 0;
+ALTER TABLE user_achievements ADD COLUMN is_notified INTEGER DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_assets_user_type ON assets(user_id, asset_type);
 CREATE INDEX IF NOT EXISTS idx_assets_user_archived ON assets(user_id, is_archived);
@@ -127,6 +133,7 @@ CREATE TABLE IF NOT EXISTS user_achievements (
     progress        REAL    DEFAULT 0,
     is_completed    INTEGER DEFAULT 0,
     completed_date  TEXT,
+    is_notified     INTEGER DEFAULT 0,
     PRIMARY KEY (user_id, achievement_id)
 );
 
@@ -173,5 +180,5 @@ INSERT OR IGNORE INTO achievement_defs (id, name, description, icon, category, g
 -- 里程碑（4）
 ('a33','日省一文','有 1 件物品单次成本低于 ¥1','fa-trophy','里程碑','cost_under_1',1,1),
 ('a34','日省百文','有 3 件物品单次成本低于 ¥10','fa-medal','里程碑','cost_under_10',3,1),
-('a35','高价也从容','购入价格高于历史最高价','fa-award','里程碑','high_price',1,2),
+('a35','高价也从容','补货单价高于该物品历史最高价','fa-award','储备幸福','high_price',1,2),
 ('a36','归藏大师','解锁全部 36 个成就中的 25 个','fa-crown','里程碑','unlocked',25,3);

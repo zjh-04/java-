@@ -1038,7 +1038,7 @@
             border-radius: 2px; transition: width 0.5s ease;
         }
         .unlocked .ach-progress-inner { background: #B38650; }
-        .ach-progress-text { font-size: 10px; color: var(--muted); text-align: right; margin-top: 4px; }
+        .ach-progress-text { font-size: 10px; color: var(--muted); text-align: right; margin-top: 6px; }
         .unlocked .ach-progress-text { color: #B38650; }
         .ach-category-title {
             grid-column: 1 / -1;

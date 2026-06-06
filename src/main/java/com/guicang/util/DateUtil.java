@@ -22,4 +22,10 @@ public class DateUtil {
         LocalDate d2 = LocalDate.parse(date2, FMT);
         return ChronoUnit.DAYS.between(d1, d2);
     }
+
+    /** 指定日期 + N 天，返回 yyyy-MM-dd */
+    public static String addDays(String dateStr, int days) {
+        LocalDate d = LocalDate.parse(dateStr, FMT);
+        return d.plusDays(days).format(FMT);
+    }
 }

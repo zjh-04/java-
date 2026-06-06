@@ -18,3 +18,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+dependency-reduced-pom.xml
+runtime-minimal/
+dist/

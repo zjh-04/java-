@@ -9,6 +9,7 @@ public class UserAchievement {
     private double  progress;
     private boolean completed;
     private String  completedDate;
+    private boolean notified;
 
     public UserAchievement() {}
 
@@ -29,4 +30,6 @@ public class UserAchievement {
     public void setCompleted(boolean completed) { this.completed = completed; }
     public String getCompletedDate() { return completedDate; }
     public void setCompletedDate(String completedDate) { this.completedDate = completedDate; }
+    public boolean isNotified() { return notified; }
+    public void setNotified(boolean notified) { this.notified = notified; }
 }
