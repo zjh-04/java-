@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>「归藏」· 此间 此身 此心</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+<svg style="display:none"><defs><filter id="hand-drawn"><feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G"/></filter></defs></svg>
+
+<div id="app">
+
+<!-- 欢迎页 -->
+<div v-if="phase==='welcome'" class="welcome-overlay" @click="skipWelcome">
+    <div class="welcome-content"><h1 class="welcome-title">「归藏」</h1><div class="welcome-subtitle">此间 · 此身 · 此心</div></div>
+</div>
+
+<!-- 登录注册 -->
+<div v-if="phase==='auth'" class="auth-overlay"><div class="auth-card">
+    <div class="auth-tabs">
+        <div class="auth-tab" :class="{active:authMode==='login'}" @click="authMode='login'">登录</div>
+        <div class="auth-tab" :class="{active:authMode==='register'}" @click="authMode='register'">注册</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="form-group" v-show="authMode==='register'"><label>用户名（登录唯一凭证，不可修改）</label><input type="text" class="form-control" v-model="auth_username" placeholder="3-16位字母、数字、中文、下划线"></div>
+        <div class="form-group" v-show="authMode==='register'"><label>个性昵称（可随时修改）</label><input type="text" class="form-control" v-model="auth_nickname" placeholder="例如：极客探险家"></div>
+        <div class="form-group" v-show="authMode==='login'"><label>用户名 / 电子邮箱 / 手机号</label><input type="text" class="form-control" v-model="auth_account" placeholder="用户名"></div>
+        <div class="form-group"><label>安全密码</label><input type="password" class="form-control" v-model="auth_password" placeholder="6-20位字符"></div>
+        <div class="form-group" v-show="authMode==='register'"><label>确认安全密码</label><input type="password" class="form-control" v-model="auth_confirm" placeholder="再次输入密码"></div>
+        <div v-if="authErr" style="color:var(--danger);font-size:12px;">{{ authErr }}</div>
+        <button class="btn-primary" style="justify-content:center;margin-top:8px;padding:12px;" @click="doAuth">{{ authMode==='login'?'进入「归藏」':'注册并进入' }}</button>
+    </div>
+</div></div>
+
+<!-- 主界面 -->
+<template v-if="phase==='main'">
+<div class="window-container">
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+        <div class="brand-logo" @click.stop="drawerOpen=!drawerOpen"><i class="fa-solid fa-leaf"></i></div>
+        <div class="nav-item" :class="{active:view==='dashboard'}" @click="view='dashboard'" title="归藏总览"><i class="fa-solid fa-timeline"></i></div>
+        <div class="nav-item" :class="{active:view==='physical'}" @click="view='physical'" title="归物此间"><i class="fa-solid fa-box-open"></i></div>
+        <div class="nav-item" :class="{active:view==='digital'}" @click="view='digital'" title="订阅中心"><i class="fa-solid fa-credit-card"></i></div>
+        <div class="nav-item" :class="{active:view==='achievements'}" @click="view='achievements'" title="成就殿堂"><i class="fa-solid fa-trophy"></i></div>
+        <div class="nav-item" :class="{active:view==='warehouse'}" @click="view='warehouse'" title="封存仓库" style="margin-top:auto;color:rgba(212,199,176,0.3);"><i class="fa-solid fa-warehouse"></i></div>
+        <div class="nav-item" @click="toggleTheme" title="切换浅色/深色模式" style="color:rgba(212,199,176,0.3);font-size:15px;"><i class="fa-solid fa-circle-half-stroke"></i></div>
+    </div>
+
+    <!-- 用户抽屉 -->
+    <div class="user-drawer" :class="{open:drawerOpen}">
+        <div class="user-profile">
+            <div class="user-avatar" @click="showAvatarPicker=true" style="cursor:pointer;" title="点击更换头像"><i :class="currentAvatar"></i></div>
+            <div style="text-align:center;">
+                <h4 style="margin:0;color:var(--text-light);">{{ user?.nickname||'用户' }}<i class="fa-solid fa-pencil" style="font-size:11px;cursor:pointer;margin-left:5px;opacity:0.55;" @click.stop="editNickname=user?.nickname||'';showNicknameModal=true" title="修改昵称"></i></h4>
+                <p style="margin:8px 0 0 0;font-size:11px;color:var(--muted);">用户名: <span style="color:var(--text-main);">{{ user?.username }}</span><span style="font-size:10px;color:rgba(217,136,128,0.5);">(不可修改)</span></p>
+            </div>
+        </div>
+        <div style="display:flex;justify-content:center;gap:20px;padding:8px 0;border-top:1px solid rgba(212,199,176,0.04);border-bottom:1px solid rgba(212,199,176,0.04);">
+            <span style="font-size:12px;color:var(--muted);"><i class="fa-solid fa-box-open"></i> <b style="color:var(--text-light);">{{ assets.length }}</b> 件</span>
+            <span style="font-size:12px;color:var(--muted);"><i class="fa-solid fa-trophy"></i> <b style="color:var(--success);">{{ completedCount }}/36</b></span>
+            <span style="font-size:12px;color:var(--muted);"><i class="fa-solid fa-coins"></i> <b style="color:var(--warning);">¥{{ (totalValue/10000).toFixed(1) }}万</b></span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <button class="user-menu-btn" @click="showPasswordModal=true"><i class="fa-solid fa-lock"></i> 修改密码</button>
+            <button class="user-menu-btn" @click="showToast('数据管理','本地备份导出成功','success')"><i class="fa-solid fa-download"></i> 导出备份数据</button>
+            <button class="user-menu-btn" style="color:var(--warning)" @click="phase='auth'"><i class="fa-solid fa-arrows-rotate"></i> 切换账户</button>
+            <button class="user-menu-btn" style="color:var(--danger)" @click="phase='auth'"><i class="fa-solid fa-power-off"></i> 退出登录</button>
+            <button class="user-menu-btn" style="color:var(--muted);font-size:11px;" @click="showToast('关于归藏','v2.0 · 此间 此身 此心','info')"><i class="fa-solid fa-circle-info"></i> 关于「归藏」</button>
+        </div>
+    </div>
+
+    <div class="main-canvas" @click="drawerOpen=false">
+
+        <!-- 仪表盘 -->
+        <div v-show="view==='dashboard'" class="view-section active">
+            <div class="view-header"><div class="view-title"><h2>「归藏」·总览</h2><p>此间安放 · 此身相伴 · 此心所系</p></div>
+                <div class="quick-actions">
+                    <button class="quick-action-btn" @click="openAddDrawer('longterm')" title="长期主义"><i class="fa-solid fa-box"></i></button>
+                    <button class="quick-action-btn" @click="openAddDrawer('stockpile')" title="囤货储备"><i class="fa-solid fa-boxes-stacked"></i></button>
+                    <button class="quick-action-btn" @click="openAddDrawer('recordOnly')" title="收藏状态"><i class="fa-solid fa-book"></i></button>
+                    <button class="quick-action-btn" @click="openAddDrawer('storedCard')" title="储值次卡"><i class="fa-solid fa-credit-card"></i></button>
+                    <button class="quick-action-btn" @click="openAddDrawer('digitalSub')" title="数字订阅"><i class="fa-solid fa-microchip"></i></button>
+                </div></div>
+            <div class="dashboard-row">
+                <div class="dash-card"><div style="font-size:13px;"><i class="fa-solid fa-rotate" style="color:var(--primary);margin-right:6px;"></i>数字化固定流速</div><div class="value">¥ {{ (dashboard.monthlyFlow||0).toFixed(2) }}<span style="font-size:14px;color:var(--muted);font-weight:normal;"> / 月</span></div><p style="font-size:12px;color:var(--muted);margin:0;">有订阅服务正在陪伴</p></div>
+                <div class="dash-card"><div style="font-size:13px;"><i class="fa-solid fa-droplet" style="color:var(--primary);margin-right:6px;"></i>细水长流均摊价值</div><div class="value">¥ {{ (dashboard.dailyAvg||0).toFixed(2) }}<span style="font-size:14px;color:var(--muted);font-weight:normal;"> / 日</span></div><p style="font-size:12px;color:var(--muted);margin:0;">全部长期物品（购入价 ÷ 已陪伴天数）的平均值</p></div>
+                <div class="dash-card"><div style="font-size:13px;"><i class="fa-solid fa-calculator" style="color:var(--primary);margin-right:6px;"></i>按量计费财务盘点</div><div class="value">¥ {{ (dashboard.quantPool||0).toFixed(2) }}</div><p style="font-size:12px;color:var(--muted);margin:0;">按量计费数字产品累计注资总额</p></div>
+            </div>
+            <div class="dash-card" style="margin-bottom:24px;"><div style="font-size:13px;margin-bottom:12px;"><i class="fa-solid fa-layer-group" style="color:var(--primary);margin-right:6px;"></i>会员总览</div>
+                <div style="display:flex;gap:16px;justify-content:space-around;text-align:center;flex-wrap:wrap;">
+                    <div><div style="font-size:20px;font-weight:700;">{{ timeCards.length }}</div><div style="font-size:10px;color:var(--muted);">按次会员卡</div></div>
+                    <div><div style="font-size:20px;font-weight:700;">{{ amountCards.length }}</div><div style="font-size:10px;color:var(--muted);">储值会员卡</div></div>
+                    <div><div style="font-size:20px;font-weight:700;">{{ digital.length }}</div><div style="font-size:10px;color:var(--muted);">续费数字订阅</div></div>
+                    <div><div style="font-size:20px;font-weight:700;">{{ metered.length }}</div><div style="font-size:10px;color:var(--muted);">计量数字订阅</div></div>
+                    <div><div style="font-size:20px;font-weight:700;">{{ lifetime.length }}</div><div style="font-size:10px;color:var(--muted);">终身制订阅</div></div>
+                </div></div>
+            <div class="timeline-container"><h3>今日物语</h3>
+                <div class="timeline-item" v-for="(item,i) in insights" :key="i"><div class="timeline-icon" :class="item.type==='warning'?'warning':'success'"></div><div class="timeline-content"><strong>{{ item.title }}：</strong>{{ item.content }}</div></div>
+            </div>
+        </div>
+
+        <!-- 物尽其用 -->
+        <div v-show="view==='physical'" class="view-section active">
+            <div class="view-header"><div class="view-title"><h2>物尽其用</h2><p>打卡记录每一天，不负相遇，拒绝消费焦虑 · <span style="color:var(--primary);">{{ physical.length }}</span> 件</p></div><button class="btn-primary" @click="openAddDrawer('longterm')"><i class="fa-solid fa-plus"></i> 添置新物</button></div>
+            <div class="items-grid" v-if="physical.length">
+                <div v-for="a in physical" :key="a.id" class="asset-card" :data-category="catOf(a)" :style="{borderColor:borderOf(a)}">
+                    <div class="card-meta" style="cursor:pointer;" title="双击编辑元数据" @dblclick="openEditAsset(a)">
+                        <div><h4><i :class="(a.icon&&a.icon.includes(' ')?a.icon:'fa-solid '+(a.icon||'fa-cube'))" :style="{color:accentOf(a),marginRight:'6px'}"></i>{{ a.name }}</h4><p v-if="a.assetType==='STOCKPILE'">当前均价 ¥{{ (a._avgPrice||0).toFixed(2) }}<span v-if="a._stockUnit"> / {{ a._stockUnit }}</span></p><p v-else>购入价 ¥{{ (a.purchasePrice||0).toFixed(2) }}</p></div>
+                        <div style="display:flex;gap:6px;align-items:flex-start;">
+                            <span class="tag" style="white-space:nowrap;" :style="{background:catOf(a)==='record'?'rgba(166,82,82,0.08)':catOf(a)==='stockpile'?'rgba(207,168,122,0.08)':'rgba(85,135,111,0.08)',color:catOf(a)==='record'?'var(--accent-rose)':catOf(a)==='stockpile'?'var(--accent-amber)':'var(--accent-green)'}"><i class="fa-solid fa-calendar-check"></i> 已陪伴 {{ a.daysHeld||0 }} 天</span>
+                            <span class="tag" :class="a._tagClass" :style="a._tagStyle" @click.stop="a.assetType==='COLLECTIBLE'&&cycleCollect(a)"><i :class="a._tagIcon||'fa-solid fa-star'"></i> {{ a._tagText||'细水长流' }}</span>
+                        </div></div>
+                    <!-- 按次 -->
+                    <template v-if="a.assetType==='LONG_TERM_PER_USE'">
+                        <div class="card-core-value"><div style="font-size:11px;color:var(--muted);">当前成本</div><div><span style="font-size:18px;color:var(--accent-green);font-weight:600;">¥</span> <span class="num" :class="{'status-perfect':(a._ratio||0)<=0.10}">{{ a._cost||(a.purchasePrice||0).toFixed(2) }}</span> <span style="font-size:14px;color:var(--muted);">/ 次</span></div></div>
+                        <p style="font-size:13px;color:var(--muted);margin:0 0 12px 0;min-height:36px;">{{ a._coatMsg||COAT_MSGS.start }}</p>
+                        <div class="card-action-row"><div style="display:flex;gap:6px;"><button class="btn-secondary-sm" @click="openHistory(a)"><i class="fa-solid fa-clock-rotate-left"></i></button><button class="btn-secondary-sm" style="color:var(--warning);" @click="openConfirm('archive',a)"><i class="fa-solid fa-box-archive"></i></button><button class="btn-secondary-sm" style="color:var(--danger);" @click="openConfirm('delete',a)"><i class="fa-solid fa-trash-can"></i></button></div><button class="btn-action-sm" @click="doCheckIn(a)"><i class="fa-solid fa-feather-pointed"></i> {{ a.usageCount||0 }}</button></div>
+                    </template>
+                    <!-- 按天 -->
+                    <template v-else-if="a.assetType==='LONG_TERM_PER_DAY'">
+                        <div class="card-core-value"><div style="font-size:11px;color:var(--muted);">日均持有成本</div><div><span style="font-size:18px;color:var(--accent-green);font-weight:600;">¥</span> <span class="num">{{ (a.dailyCost||0).toFixed(2) }}</span> <span style="font-size:14px;color:var(--muted);">/ 天</span></div></div>
+                        <p style="font-size:13px;color:var(--muted);margin:0 0 12px 0;min-height:36px;">每一天的陪伴都在悄悄降低它的持有成本。</p>
+                        <div class="card-action-row"><div style="display:flex;gap:6px;"><button class="btn-secondary-sm" @click="openHistory(a)"><i class="fa-solid fa-clock-rotate-left"></i></button><button class="btn-secondary-sm" style="color:var(--warning);" @click="openConfirm('archive',a)"><i class="fa-solid fa-box-archive"></i></button><button class="btn-secondary-sm" style="color:var(--danger);" @click="openConfirm('delete',a)"><i class="fa-solid fa-trash-can"></i></button></div><span style="font-size:11px;color:var(--accent-green);"><i class="fa-solid fa-infinity"></i> 自然陪伴中</span></div>
+                    </template>
+                    <!-- 收藏 -->
+                    <template v-else-if="a.assetType==='COLLECTIBLE'">
+                        <p style="font-size:13px;color:var(--muted);margin:0 0 12px 0;min-height:36px;">它静静地躺在首饰盒里，每一次目光停留都是对它的珍视。</p>
+                        <div class="card-action-row"><div style="display:flex;gap:6px;"><button class="btn-secondary-sm" @click="openHistory(a)"><i class="fa-solid fa-clock-rotate-left"></i></button><button class="btn-secondary-sm" style="color:var(--warning);" @click="openConfirm('archive',a)"><i class="fa-solid fa-box-archive"></i></button><button class="btn-secondary-sm" style="color:var(--danger);" @click="openConfirm('delete',a)"><i class="fa-solid fa-trash-can"></i></button></div></div>
+                    </template>
+                    <!-- 囤货 -->
+                    <template v-else-if="a.assetType==='STOCKPILE'">
+                        <div class="stock-cup-container"><div class="cup-visual"><svg viewBox="0 0 100 150" class="heytea-cup"><defs><clipPath :id="'lc-'+a.id"><path :d="stockPct(a)<30?'M 0,45 Q 25,40 50,48 T 100,42 L 100,150 L 0,150 Z':'M 0,50 Q 25,45 50,50 T 100,45 L 100,150 L 0,150 Z'"/></clipPath></defs><g :clip-path="'url(#lc-'+a.id+')'" :transform="'translate(0,'+(100-stockPct(a))+')'"><rect x="8" y="0" width="84" height="150" fill="#F1C292" opacity="0.85"/><path d="M 15,20 Q 30,80 20,140" stroke="#DF9E6A" stroke-width="4" fill="none" opacity="0.5" stroke-linecap="round"/></g><path d="M 10,10 L 25,140 L 75,140 L 90,10" fill="none" stroke="#1A1A1A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><line x1="70" y1="40" x2="80" y2="40" stroke="#1A1A1A" stroke-width="2.5" stroke-linecap="round"/><line x1="72" y1="70" x2="80" y2="70" stroke="#1A1A1A" stroke-width="2.5" stroke-linecap="round"/><line x1="70" y1="100" x2="80" y2="100" stroke="#1A1A1A" stroke-width="2.5" stroke-linecap="round"/></svg></div><div class="price-range-bar"><div style="font-size:11px;color:var(--muted);">历史价格监控区间</div><div class="range-track"><div class="range-current-dot" :style="{left:priceDotPos(a)+'%'}"></div></div><div class="range-labels"><span>史低 ¥{{ (a._priceMin||0).toFixed(1) }}</span><span>史高 ¥{{ (a._priceMax||0).toFixed(1) }}</span></div></div></div>
+                        <div v-if="a._feedback" class="price-feedback-bar active" :style="{borderColor: a._feedback.verdict==='good'?'var(--success)':'var(--warning)'}" v-html="a._feedback.message"></div>
+                        <div class="card-action-row"><div>库存剩 {{ a.currentStock||0 }} (安全线 {{ a.safetyStock||0 }})</div><div style="display:flex;gap:6px;"><button class="btn-secondary-sm" @click="openHistory(a)"><i class="fa-solid fa-clock-rotate-left"></i></button><button class="btn-secondary-sm" style="color:var(--warning);" @click="openConfirm('archive',a)"><i class="fa-solid fa-box-archive"></i></button><button class="btn-secondary-sm" style="color:var(--danger);" @click="openConfirm('delete',a)"><i class="fa-solid fa-trash-can"></i></button><button class="btn-action-sm" style="padding:6px 10px;" @click="doConsume(a)"><i class="fa-solid fa-box-open"></i></button><button class="btn-action-sm" style="color:var(--warning);border-color:rgba(217,168,124,0.2);padding:6px 10px;" @click="openFormModal('restock',a)"><i class="fa-solid fa-cart-shopping"></i></button></div></div>
+                    </template>
+                </div>
+            </div>
+            <div v-else style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:360px;color:var(--muted);font-size:13.5px;text-align:center;line-height:1.6;"><i class="fa-solid fa-box-open" style="font-size:32px;color:rgba(212,199,176,0.1);margin-bottom:12px;"></i>还没有实体物品<br>点击右上角「添置新物」开启旅程</div>
+        </div>
+
+        <!-- 会员中心 -->
+        <div v-show="view==='digital'" class="view-section active">
+            <div class="view-header"><div class="view-title"><h2>会员中心</h2><p>管理会员账单，收拢生活边界 · <span style="color:var(--primary);">{{ allDigital.length }}</span> 件</p></div><button class="btn-primary" @click="openAddDrawer('digitalSub')"><i class="fa-solid fa-plus"></i> 绑定新权益</button></div>
+            <div class="sub-grid" v-if="allDigital.length">
+                <div v-for="a in allDigital" :key="a.id" class="sub-card" :style="{borderColor:borderOf(a)}" :class="{'critical-alert': a._critical}">
+                    <div style="font-size:24px;" :style="{color:accentOf(a)}"><i :class="(a.icon&&a.icon.includes(' ')?a.icon:'fa-solid '+(a.icon||'fa-credit-card'))"></i></div>
+                    <h4 style="margin:4px 0;color:var(--text-light);cursor:pointer;" @dblclick="openEditAsset(a)" title="双击编辑元数据">{{ a.name }}</h4>
+                    <div style="font-size:20px;font-weight:700;color:var(--text-light);margin:6px 0;" v-html="a._priceHtml"></div>
+                    <p style="font-size:11px;margin:0 0 10px 0;" :style="{color:a._statusColor||'var(--muted)'}" v-html="a._statusHtml"></p>
+                    <div style="display:flex;justify-content:center;gap:4px;z-index:2;">
+                        <button class="btn-secondary-sm" @click="openHistory(a)"><i class="fa-solid fa-clock-rotate-left"></i></button>
+                        <button class="btn-secondary-sm" style="color:var(--warning);" @click="openConfirm('archive',a)"><i class="fa-solid fa-box-archive"></i></button>
+                        <button class="btn-secondary-sm" style="color:var(--danger);" @click="openConfirm('delete',a)"><i class="fa-solid fa-trash-can"></i></button>
+                        <button v-if="a._showTopup" class="btn-action-sm" style="padding:6px 10px;" @click="openFormModal(a.assetType==='STORED_TIME_CARD'?'topup_time':'topup_amount',a)"><i class="fa-solid fa-wallet"></i></button>
+                        <button v-if="a._showAction" class="btn-action-sm" style="padding:6px 10px;" @click="a.assetType==='STORED_TIME_CARD'?doPunch(a):openFormModal('spend',a)"><i class="fa-solid fa-feather-pointed"></i></button>
+                    </div>
+                    <div class="sub-progress-bar"><div class="sub-progress-inner" :class="{critical:a._critical}" :style="{height:a._pct+'%', background:progressColor(a), opacity:a._critical?0.22:0.25}"></div></div>
+                </div>
+            </div>
+            <div v-else style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:360px;color:var(--muted);font-size:13.5px;text-align:center;"><i class="fa-solid fa-credit-card" style="font-size:32px;color:rgba(212,199,176,0.1);margin-bottom:12px;"></i>还没有数字化会员</div>
+        </div>
+
+        <!-- 成就殿堂 -->
+        <div v-show="view==='achievements'" class="view-section active">
+            <div class="view-header"><div class="view-title"><h2>成就殿堂</h2><p>每一次记录、每一件物品、每一分克制，都在点亮属于你的星空</p></div><div style="font-size:12px;color:var(--muted);"><span style="color:var(--success);font-weight:700;">{{ completedCount }}</span> / 36 已解锁</div></div>
+            <div class="achievement-grid">
+                <template v-for="g in achGroups" :key="g.cat">
+                    <div class="ach-category-title">{{ g.cat }}</div>
+                    <div v-for="ach in g.items" :key="ach.id" class="achievement-card" :class="{unlocked:ach.completed,locked:!ach.completed}">
+                        <div class="ach-icon"><i :class="(ach.icon&&ach.icon.includes(' ')?ach.icon:'fa-solid '+(ach.icon||'fa-trophy'))"></i></div>
+                        <div class="ach-name">{{ ach.name }}</div>
+                        <div class="ach-desc">{{ ach.description }}</div>
+                        <div class="ach-progress-bar"><div class="ach-progress-inner" :style="{width:(ach.goal>0?Math.min(100,(ach.current||0)/ach.goal*100):0)+'%'}"></div></div>
+                        <div class="ach-progress-text">{{ ach.completed ? (ach.completedDate||'已解锁') : (ach.current||0)+'/'+ach.goal }}</div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- 封存仓库 -->
+        <div v-show="view==='warehouse'" class="view-section active">
+            <div class="view-header"><div class="view-title"><h2>封存仓库</h2><p>已被暂停订阅、封存归档的历史信息与轨迹都在这里妥善保管 · <span style="color:var(--muted);">{{ archived.length }}</span> 件</p></div></div>
+            <div class="items-grid">
+                <div v-if="!archived.length" style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:360px;color:var(--muted);font-size:13.5px;text-align:center;line-height:1.6;"><i class="fa-solid fa-boxes-stacked" style="font-size:32px;color:rgba(212,199,176,0.1);margin-bottom:12px;"></i>暂无处于封存或暂停状态的物品及权益卡片</div>
+                <div v-for="a in archived" :key="a.id" class="asset-card" style="border-color:rgba(113,113,122,0.2);">
+                    <div class="card-meta">
+                        <div>
+                            <h4 style="color:var(--muted);text-decoration:line-through;"><i :class="(a.icon&&a.icon.includes(' ')?a.icon:'fa-solid '+(a.icon||'fa-box'))" style="opacity:0.5;"></i> {{ a.name }}</h4>
+                            <p style="color:rgba(212,199,176,0.3);">状态：已封存入库 / 暂停订阅</p>
+                        </div>
+                        <span class="tag" style="color:var(--muted);border-color:var(--muted);"><i class="fa-solid fa-box-archive"></i> 仓库封存</span>
+                    </div>
+                    <p style="font-size:12px;color:var(--muted);margin:15px 0;line-height:1.4;">该资产及它产生过的所有历程与均摊流速已被安全冷冻。点击重启按钮可解除冰封并带回原所属面板。</p>
+                    <div class="card-action-row" style="border-top-color:rgba(212,199,176,0.02);">
+                        <button class="btn-action-sm" style="padding:6px 10px;" @click="openHistory(a)"><i class="fa-solid fa-clock-rotate-left"></i> 查看封存历程</button>
+                        <button class="btn-action-sm" style="color:var(--success);border-color:rgba(16,185,129,0.2);background:rgba(16,185,129,0.03);padding:6px 12px;" @click="doRestore(a)"><i class="fa-solid fa-arrows-spin"></i> 重启唤醒</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新建抽屉 -->
+<div class="modal-overlay" :class="{open:addDrawerOpen}" @click.self="addDrawerOpen=false"><div class="drawer-content">
+    <h3 style="margin:0;color:var(--text-light);font-size:19px;">{{ editAsset ? '编辑资产信息' : '添置生活新物 / 权益' }}</h3>
+    <div class="form-group"><label>资产名称</label><input type="text" class="form-control" v-model="f_name" placeholder="给它起个名字，比如：索尼 A7M4"></div>
+    <div class="form-group"><label>购入价格</label><input type="text" class="form-control" v-model="f_price" placeholder="花了多少钱？¥ 0.00" @input="syncPriceDefaults"></div>
+    <div class="form-group"><label>购入日期</label><input type="date" class="form-control" v-model="f_date" @change="updateSubNextDate"></div>
+    <div class="form-group"><label>图标</label><div class="icon-picker-grid"><div v-for="ic in ICONS" :key="ic" class="icon-option" :class="{selected:f_icon===ic}" @click="f_icon=ic"><i :class="ic"></i></div></div></div>
+    <div class="form-group"><label>类型</label>
+        <div v-if="!editAsset" class="segmented-control">
+        <div class="segment-btn" :class="{active:addMode==='longterm'}" @click="addMode='longterm';f_icon='fa-solid fa-box'">细水长流</div>
+        <div class="segment-btn" :class="{active:addMode==='stockpile'}" @click="addMode='stockpile';f_icon='fa-solid fa-box'">储备幸福</div>
+        <div class="segment-btn" :class="{active:addMode==='recordOnly'}" @click="addMode='recordOnly';f_icon='fa-solid fa-gem'">收藏状态</div>
+        <div class="segment-btn" :class="{active:addMode==='storedCard'}" @click="addMode='storedCard';f_icon='fa-solid fa-credit-card'">储值卡</div>
+        <div class="segment-btn" :class="{active:addMode==='digitalSub'}" @click="addMode='digitalSub';f_icon='fa-solid fa-microchip'">数字化订阅</div>
+    </div>
+        <div v-else style="padding:10px 14px;color:var(--text-light);font-size:13px;background:var(--input-bg);border-radius:8px;border:1.5px solid var(--primary-dark);">
+            <i class="fa-solid fa-lock" style="color:var(--muted);margin-right:8px;font-size:11px;"></i>
+            {{ addMode==='longterm'?'细水长流':addMode==='stockpile'?'储备幸福':addMode==='recordOnly'?'收藏状态':addMode==='storedCard'?'储值卡':addMode==='digitalSub'?'数字化订阅':'' }}
+            <span style="font-size:10px;color:var(--muted);margin-left:8px;">(不可修改)</span>
+        </div>
+    </div>
+    <div v-show="addMode==='longterm'"><div class="form-group"><label>分摊维度</label><div v-if="!editAsset" style="display:flex;gap:20px;font-size:13px;margin-top:4px;"><label style="cursor:pointer;color:var(--text-light)"><input type="radio" v-model="f_dim" value="perDay"> 按天数</label><label style="cursor:pointer;color:var(--text-light)"><input type="radio" v-model="f_dim" value="perUse"> 按次数</label></div><div v-else style="padding:6px 0;color:var(--muted);font-size:12px;"><i class="fa-solid fa-lock" style="margin-right:6px;font-size:10px;"></i>{{ f_dim==='perDay'?'按天数自动均摊':'按使用次数分摊' }}（不可更改）</div></div></div>
+    <div v-show="addMode==='recordOnly'"><div class="form-group"><label>初始状态</label><select v-if="!editAsset" class="form-control" v-model="f_collectStatus"><option v-for="s in COLLECT_STATUS" :key="s" :value="s">{{ s }}</option></select><div v-else style="padding:6px 0;color:var(--muted);font-size:12px;"><i class="fa-solid fa-lock" style="margin-right:6px;font-size:10px;"></i>{{ f_collectStatus }}（不可更改）</div></div><p style="font-size:12px;color:var(--muted);line-height:1.5;margin:0;"><i class="fa-solid fa-circle-info" style="color:var(--primary);margin-right:4px;"></i>收藏状态不计算成本分摊，纯粹登记资产与陪伴天数。卡片右上角标签可随时切换。</p></div>
+    <div v-show="addMode==='stockpile'">
+        <div class="form-row"><div class="form-group"><label>初始库存</label><input type="number" class="form-control" v-model="f_stockQty" placeholder="手上有几件？"></div><div class="form-group"><label>单位计量</label><input type="text" class="form-control" v-model="f_stockUnit" list="unitOptions" placeholder="箱 / 件 / 包..."></div></div>
+        <datalist id="unitOptions"><option>箱</option><option>件</option><option>包</option><option>瓶</option><option>袋</option><option>个</option><option>卷</option><option>盒</option><option>桶</option><option>提</option><option>斤</option><option>升</option></datalist>
+        <div class="form-group"><label>安全水位</label><input type="number" class="form-control" v-model="f_stockSafe" placeholder="低于这个数就提醒补货"></div>
+    </div>
+    <div v-show="addMode==='storedCard'"><div class="form-group"><label>储值方式</label><div v-if="!editAsset" style="display:flex;gap:10px;font-size:13px;margin-top:4px;"><label style="cursor:pointer;color:var(--text-light)"><input type="radio" v-model="f_storeType" value="time"> 次卡（按次数消耗）</label><label style="cursor:pointer;color:var(--text-light)"><input type="radio" v-model="f_storeType" value="amount"> 量卡（按金额消费）</label></div><div v-else style="padding:6px 0;color:var(--muted);font-size:12px;"><i class="fa-solid fa-lock" style="margin-right:6px;font-size:10px;"></i>{{ f_storeType==='time'?'次卡（按次数消耗）':'量卡（按金额消费）' }}（不可更改）</div></div>
+    <div v-if="f_storeType==='time'"><div class="form-row"><div class="form-group"><label>总可用次数</label><input type="number" class="form-control" v-model="f_cardTimes" placeholder="一共能用多少次？"></div><div class="form-group"><label>已消耗次数</label><input type="number" class="form-control" v-model="f_cardConsumed" placeholder="0"></div></div><div class="form-group"><label>累计充值总金额</label><input type="text" class="form-control" v-model="f_cardAmount" @input="markDirty('cardAmount')" :placeholder="'留空默认=购入价 ¥'+(f_price||'0')"></div></div>
+    <div v-else><div class="form-group"><label>当前余额</label><input type="number" class="form-control" v-model="f_cardBalance" @input="markDirty('cardBalance')" :placeholder="'留空默认=购入价 ¥'+(f_price||'0')"></div><div class="form-group"><label>累计充值总金额</label><input type="text" class="form-control" v-model="f_cardTopup" @input="markDirty('cardTopup')" :placeholder="'留空默认=购入价 ¥'+(f_price||'0')"></div></div></div>
+    <div v-show="addMode==='digitalSub'"><div class="form-group"><label>计费模式</label><select v-if="!editAsset" class="form-control" v-model="f_subType"><option value="fixed">周期固定扣费</option><option value="metered">按量弹性计费</option><option value="permanent">永久有效</option></select><div v-else style="padding:6px 0;color:var(--muted);font-size:12px;"><i class="fa-solid fa-lock" style="margin-right:6px;font-size:10px;"></i>{{ f_subType==='fixed'?'周期固定扣费':f_subType==='metered'?'按量弹性计费':'永久有效' }}（不可更改）</div></div>
+    <div v-if="f_subType==='fixed'"><div class="form-row"><div class="form-group"><label>周期</label><select v-if="!editAsset" class="form-control" v-model="f_subCycle" @change="updateSubNextDate"><option>按月续费</option><option>按季续费</option><option>按年续费</option></select><div v-else style="padding:6px 0;color:var(--muted);font-size:12px;"><i class="fa-solid fa-lock" style="margin-right:6px;font-size:10px;"></i>{{ f_subCycle }}（不可更改）</div></div><div class="form-group"><label>扣款日</label><input type="date" class="form-control" v-model="f_subNextDate"></div></div></div>
+    <div v-if="f_subType==='metered'"><div class="form-group"><label>初始余额</label><input type="number" class="form-control" v-model="f_apiBalance" @input="markDirty('apiBalance')" :placeholder="'留空默认=购入价 ¥'+(f_price||'0')"></div><p style="font-size:11px;color:var(--warning);margin:2px 0 0 0;line-height:1.4;"><i class="fa-solid fa-lightbulb" style="color:var(--warning);"></i> <b>按量计费提醒：</b>此模式无固定截止日，系统将其列为弹性注资池，请密切观察消耗速率。</p></div>
+    <div v-if="f_subType==='permanent'"><p style="font-size:12px;color:var(--text-main);line-height:1.5;margin:0;"><i class="fa-solid fa-infinity" style="color:var(--accent-green);margin-right:4px;"></i>永久有效：一次买断，终身使用。不设扣费周期，和长期资产一样追踪陪伴天数。</p></div></div>
+    <div class="form-group"><label>备注</label><textarea class="form-control" style="resize:none;height:60px;" v-model="f_notes" placeholder="关于它的碎碎念，可选……"></textarea></div>
+    <p v-if="f_err" style="color:var(--danger);font-size:12px;">{{ f_err }}</p>
+    <div class="drawer-foot"><button class="btn-action-sm" style="border:none;background:transparent;color:var(--muted);" @click="addDrawerOpen=false">取消</button><button class="btn-primary" @click="submitAddAsset">确认录入</button></div>
+</div></div>
+
+<!-- 历史抽屉 -->
+<div class="modal-overlay" :class="{open:historyOpen}" @click.self="historyOpen=false"><div class="drawer-content" style="width:380px;">
+    <h3 style="margin:0;color:var(--text-light);font-size:17px;">全生命周期历程</h3>
+    <p style="font-size:11.5px;color:var(--muted);margin:-10px 0 10px 0;">该资产在系统中的每一次交互痕迹</p>
+    <div class="history-timeline"><div v-for="(h,i) in historyLogs" :key="i" class="history-node"><div class="time">{{ h.createdAt }}</div><div style="color:var(--text-main)">{{ actLabel(h.actionType) }}{{ h.quantity>0?' x'+h.quantity:'' }} — {{ h.notes||'无备注' }}</div></div></div>
+    <div class="drawer-foot"><button class="btn-primary" style="width:100%;justify-content:center;" @click="historyOpen=false">关闭历程栏</button></div>
+</div></div>
+
+<!-- 确认弹窗 -->
+<div class="pop-modal-overlay" :class="{open:confirmOpen}"><div class="pop-modal-content" :style="{borderColor:confirmType==='delete'?'rgba(217,136,128,0.35)':'rgba(217,168,124,0.3)'}">
+    <h4 style="margin:0;" :style="{color:confirmType==='delete'?'var(--danger)':'var(--warning)'}"><i :class="confirmType==='delete'?'fa-solid fa-triangle-exclamation':'fa-solid fa-box-archive'"></i> {{ confirmType==='delete'?'安全抹除确认':'归档封存确认' }}</h4>
+    <p style="font-size:12.5px;color:var(--text-main);margin:0;line-height:1.4;">{{ confirmType==='delete'? '确定从系统中抹除此项资产吗？所有历史记录将彻底消失。' : '确定将此资产移入封存仓库吗？归档后退出日常大盘，历史完整保留。' }}</p>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;"><button class="btn-action-sm" style="border:none;background:transparent;color:var(--muted);" @click="confirmOpen=false">取消</button><button class="btn-primary" :style="confirmType==='delete'?'background:rgba(217,136,128,0.08);color:var(--danger);border-color:rgba(217,136,128,0.35);':'background:rgba(203,175,136,0.12);color:var(--warning);border-color:rgba(217,168,124,0.3);'" @click="confirmType==='delete'?doDelete():doArchive()">{{ confirmType==='delete'?'确认彻底删除':'确认归档封存' }}</button></div>
+</div></div>
+
+<!-- 表单弹窗（补货/充值/消费） -->
+<div class="pop-modal-overlay" :class="{open:formModalOpen}"><div class="pop-modal-content">
+    <h4 style="margin:0;color:var(--text-light);">{{ formModalTitle }}</h4>
+    <div class="form-row" v-if="formModalMode==='restock'"><div class="form-group"><label>总金额</label><input type="number" class="form-control" v-model="fm_amount"></div><div class="form-group"><label>购买数量</label><input type="number" class="form-control" v-model="fm_qty"></div></div>
+    <div class="form-group" v-if="formModalMode==='topup_time'"><label>充值金额</label><input type="number" class="form-control" v-model="fm_amount"></div>
+    <div class="form-group" v-if="formModalMode==='topup_time'"><label>新增次数</label><input type="number" class="form-control" v-model="fm_qty"></div>
+    <div class="form-group" v-if="formModalMode==='topup_amount'||formModalMode==='spend'"><label>金额</label><input type="number" class="form-control" v-model="fm_amount"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:5px;"><button class="btn-action-sm" style="border:none;background:transparent;color:var(--muted);" @click="formModalOpen=false">取消</button><button class="btn-primary" style="padding:6px 12px;font-size:12px;" @click="submitFormModal">{{ formModalMode==='restock'?'确认落库':'确认' }}</button></div>
+</div></div>
+
+</template>
+
+<!-- 头像选择 -->
+<div class="pop-modal-overlay" :class="{open:showAvatarPicker}" @click.self="showAvatarPicker=false"><div class="pop-modal-content">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;text-align:center;">选择你的个性头像</div>
+    <div class="avatar-grid"><div v-for="(av,i) in avatarIcons" :key="i" class="avatar-option" :class="{selected:avatarIdx===i}" @click="selectAvatar(i)"><i :class="av"></i></div></div>
+    <button class="btn-action-sm" style="width:100%;justify-content:center;margin-top:12px;" @click="showAvatarPicker=false">取消</button>
+</div></div>
+
+<!-- 修改昵称 -->
+<div class="pop-modal-overlay" :class="{open:showNicknameModal}" @click.self="showNicknameModal=false"><div class="pop-modal-content">
+    <h4 style="margin:0;color:var(--text-light);"><i class="fa-solid fa-pencil" style="color:var(--primary);margin-right:6px;"></i>修改个性昵称</h4>
+    <div class="form-group"><label>个性昵称</label><input type="text" class="form-control" v-model="editNickname" :placeholder="user?.nickname" maxlength="20"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:5px;"><button class="btn-action-sm" style="border:none;background:transparent;color:var(--muted);" @click="showNicknameModal=false">取消</button><button class="btn-primary" style="padding:6px 12px;font-size:12px;" @click="saveNickname">确认修改</button></div>
+</div></div>
+
+<!-- 修改密码 -->
+<div class="pop-modal-overlay" :class="{open:showPasswordModal}" @click.self="showPasswordModal=false"><div class="pop-modal-content">
+    <h4 style="margin:0;color:var(--text-light);"><i class="fa-solid fa-lock" style="color:var(--primary);margin-right:6px;"></i>修改安全密码</h4>
+    <div class="form-group"><label>当前密码</label><input type="password" class="form-control" v-model="oldPw" placeholder="输入当前密码"></div>
+    <div class="form-group"><label>新密码</label><input type="password" class="form-control" v-model="newPw" placeholder="至少6位，含字母和数字"></div>
+    <div class="form-group"><label>确认新密码</label><input type="password" class="form-control" v-model="confirmPw" placeholder="再次输入新密码"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:5px;"><button class="btn-action-sm" style="border:none;background:transparent;color:var(--muted);" @click="showPasswordModal=false">取消</button><button class="btn-primary" style="padding:6px 12px;font-size:12px;" @click="changePassword">确认修改</button></div>
+</div></div>
+
+<!-- Toast -->
+<div class="toast-container"><div v-for="(t,i) in toastList" :key="i" class="win-toast" :class="t.type"><div><i class="fa-solid" :class="t.icon"></i></div><div class="toast-body"><h5>{{ t.title }}</h5><p>{{ t.msg }}</p></div></div></div>
+
+</div>
+
+<script type="importmap">{ "imports": { "vue": "./js/lib/vue.esm-browser.prod.js" } }</script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

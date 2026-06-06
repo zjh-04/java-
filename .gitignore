@@ -1,0 +1,20 @@
+# Maven
+target/
+
+# JCEF native binaries (auto-downloaded by jcefmaven, ~300MB)
+jcef-bundle/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Compiled output
+out/
+*.class
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
