@@ -9,8 +9,7 @@ import com.guicang.util.DateUtil;
 import java.util.*;
 
 /**
- * JS 桥接对象 — 所有方法暴露给前端 window.javaBackend 调用。
- * 通过 HTTP API 模式：前端 fetch('/api/xxx') → Java 处理 → 返回 JSON。
+ * HTTP API 路由分发 — 前端 fetch('/api/xxx') → 返回 JSON
  */
 public class JavaBackend {
 
@@ -401,7 +400,14 @@ public class JavaBackend {
     public String exportData() {
         User u = requireLogin();
         Map<String, Object> backup = new LinkedHashMap<>();
-        backup.put("user", u);
+        // 安全：排除密码哈希，只导出公开资料
+        Map<String, Object> safeUser = new LinkedHashMap<>();
+        safeUser.put("id", u.getId());
+        safeUser.put("username", u.getUsername());
+        safeUser.put("nickname", u.getNickname());
+        safeUser.put("avatarIndex", u.getAvatarIndex());
+        safeUser.put("theme", u.getTheme());
+        backup.put("user", safeUser);
         backup.put("assets", assetService.getAll(u.getId()));
         backup.put("exportDate", java.time.LocalDate.now().toString());
         return gson.toJson(Map.of("success", true, "data", backup));

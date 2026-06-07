@@ -71,7 +71,7 @@ public class Asset {
     private String  createdAt;
     private String  updatedAt;
 
-    // ===== 派生字段 (不存库，Service 计算后设值；不用 transient，否则 Gson 序列化到前端时会被跳过) =====
+    // ===== 派生字段 (不存库) =====
     private long   daysHeld;
     private double dailyCost;
     private double costRatio;

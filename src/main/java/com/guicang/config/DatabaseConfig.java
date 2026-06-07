@@ -75,7 +75,6 @@ public class DatabaseConfig {
             connection = DriverManager.getConnection(url);
             connection.setAutoCommit(true);
 
-            // 执行 DDL
             executeSchema(connection);
             initialized = true;
 
@@ -108,7 +107,7 @@ public class DatabaseConfig {
             is.close();
         }
 
-        // 按 ; 分割并逐条执行（SQLite 原生支持 -- 注释，无需预处理）
+        // 按 ; 分割逐条执行
         String[] statements = content.split(";");
         int executed = 0;
         try (Statement stmt = conn.createStatement()) {

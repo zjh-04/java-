@@ -13,30 +13,133 @@ import java.awt.*;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
 /**
- * 「归藏」主入口
- * 启动顺序: ①初始化 SQLite → ②启动内嵌 HTTP 服务器 → ③创建 Swing JFrame + JCEF 窗口
+ * 「归藏」主入口 — 支持桌面窗口(JCEF) / 浏览器(--browser) 两种模式
  */
 public class App {
 
     private static final Gson gson = new Gson();
     private static final JavaBackend backend = new JavaBackend();
 
+    private static boolean browserOnly = false;
+
     public static void main(String[] args) {
-        // ① 初始化 SQLite
+        // 命令行参数
+        for (String arg : args) {
+            if ("--browser".equals(arg) || "--no-jcef".equals(arg)) browserOnly = true;
+            else if ("--help".equals(arg) || "-h".equals(arg)) {
+                System.out.println("归藏 v1.0    java -jar guicang.jar [选项]");
+                System.out.println("  (无参数)    桌面窗口模式 (JCEF 内嵌 Chromium)");
+                System.out.println("  --browser   跳过 JCEF，直接用系统浏览器打开");
+                System.out.println("  --no-jcef   同 --browser");
+                return;
+            }
+        }
+
+        if (browserOnly) {
+            runBrowserMode();
+        } else {
+            // ① 初始化 SQLite
+            System.out.println("[归藏] 正在初始化数据库...");
+            DatabaseConfig.getConnection();
+            // ② 启动内嵌 HTTP 服务器
+            HttpServer server = startHttpServer();
+            System.out.println("[归藏] HTTP 服务器已启动 http://localhost:" + AppConfig.HTTP_PORT);
+            // ③ 桌面窗口模式：Swing + JCEF
+            SwingUtilities.invokeLater(() -> createWindow(server));
+        }
+    }
+
+    /** 浏览器模式：如果已有服务在跑就直接打开浏览器；否则启动服务 + 系统托盘图标 */
+    private static void runBrowserMode() {
+        // 试探已有服务
+        String url = "http://localhost:" + AppConfig.HTTP_PORT;
+        try {
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection)
+                    new java.net.URL(url + "/api/session").openConnection();
+            conn.setConnectTimeout(1500);
+            conn.setReadTimeout(1500);
+            conn.connect();
+            // 已有服务在跑，直接打开浏览器即退出
+            openBrowser(url);
+            return;
+        } catch (IOException ignored) {
+            // 无已有服务，启动新的
+        }
+
+        // 没有已有服务 → 启动
         System.out.println("[归藏] 正在初始化数据库...");
         DatabaseConfig.getConnection();
-
-        // ② 启动内嵌 HTTP 服务器
         HttpServer server = startHttpServer();
-        System.out.println("[归藏] HTTP 服务器已启动 http://localhost:" + AppConfig.HTTP_PORT);
+        System.out.println("[归藏] HTTP 服务器已启动 " + url);
 
-        // ③ 创建 Swing 窗口 + JCEF 浏览器
-        SwingUtilities.invokeLater(() -> createWindow(server));
+        openBrowser(url);
+
+        // 创建系统托盘图标，替代控制台窗口
+        CountDownLatch keepAlive = new CountDownLatch(1);
+        if (SystemTray.isSupported()) {
+            createTrayIcon(url, server, keepAlive);
+        } else {
+            System.out.println("[归藏] 系统托盘不可用，按 Ctrl+C 退出");
+        }
+
+        // JVM 关闭时优雅退出
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            server.stop(0);
+            DatabaseConfig.close();
+        }));
+        try { keepAlive.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+    }
+
+    /** 在系统托盘中放置图标，右键菜单可打开浏览器或退出 */
+    private static void createTrayIcon(String url, HttpServer server, CountDownLatch latch) {
+        try {
+            // 渲染托盘图标
+            java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2 = img.createGraphics();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(new Color(203, 175, 136)); // 归藏主色
+            g2.fillOval(0, 0, 16, 16);
+            g2.setColor(new Color(30, 32, 34));
+            g2.setFont(new Font("Serif", Font.BOLD, 11));
+            g2.drawString("归", 2, 13);
+            g2.dispose();
+
+            PopupMenu menu = new PopupMenu();
+            MenuItem openItem = new MenuItem("打开归藏");
+            openItem.addActionListener(e -> openBrowser(url));
+            MenuItem exitItem = new MenuItem("退出");
+            TrayIcon trayIcon = new TrayIcon(img, "归藏 · 此间 此身 此心", menu);
+            exitItem.addActionListener(e -> {
+                SystemTray.getSystemTray().remove(trayIcon);
+                server.stop(0);
+                DatabaseConfig.close();
+                latch.countDown();
+                System.exit(0);
+            });
+            menu.add(openItem);
+            menu.addSeparator();
+            menu.add(exitItem);
+
+            trayIcon.setImageAutoSize(true);
+            SystemTray.getSystemTray().add(trayIcon);
+        } catch (Exception e) {
+            System.err.println("[归藏] 创建托盘图标失败: " + e.getMessage());
+        }
+    }
+
+    private static void openBrowser(String url) {
+        try {
+            Desktop.getDesktop().browse(new URI(url));
+        } catch (Exception e) {
+            System.err.println("[归藏] 无法打开浏览器，请手动访问 " + url);
+        }
     }
 
     // ==================== HTTP 服务器 ====================
@@ -72,11 +175,12 @@ public class App {
             }
 
             String path = ex.getRequestURI().getPath();
+            String query = ex.getRequestURI().getQuery();
             String method = ex.getRequestMethod();
             String body = readBody(ex);
 
             try {
-                String result = dispatch(path, method, body);
+                String result = dispatch(path, method, body, query);
                 byte[] bytes = result.getBytes(StandardCharsets.UTF_8);
                 ex.sendResponseHeaders(200, bytes.length);
                 ex.getResponseBody().write(bytes);
@@ -90,7 +194,7 @@ public class App {
             }
         }
 
-        private String dispatch(String path, String method, String body) {
+        private String dispatch(String path, String method, String body, String query) {
             return switch (path) {
                 // 认证
                 case "/api/login"      -> backend.login(body);
@@ -143,7 +247,20 @@ public class App {
                     }
                     // 设置
                     if ("/api/config".equals(path)) {
-                        yield "GET".equals(method) ? backend.getConfig("theme") : backend.setConfig(body);
+                        if ("GET".equals(method)) {
+                            String key = "theme";
+                            if (query != null) {
+                                for (String param : query.split("&")) {
+                                    String[] kv = param.split("=", 2);
+                                    if (kv.length == 2 && "key".equals(kv[0])) {
+                                        key = java.net.URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
+                                    }
+                                }
+                            }
+                            yield backend.getConfig(key);
+                        } else {
+                            yield backend.setConfig(body);
+                        }
                     }
                     yield gson.toJson(Map.of("success", false, "message", "未知 API: " + path));
                 }

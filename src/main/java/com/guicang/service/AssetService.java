@@ -30,7 +30,7 @@ public class AssetService {
         if (updated.getName() != null && !updated.getName().isEmpty()) existing.setName(updated.getName());
         if (updated.getIcon() != null) existing.setIcon(updated.getIcon());
         if (updated.getCategory() != null && !updated.getCategory().isEmpty()) existing.setCategory(updated.getCategory());
-        if (updated.getPurchasePrice() >= 0) existing.setPurchasePrice(updated.getPurchasePrice());
+        if (updated.getPurchasePrice() > 0) existing.setPurchasePrice(updated.getPurchasePrice());
         if (updated.getPurchaseDate() != null && !updated.getPurchaseDate().isEmpty()) existing.setPurchaseDate(updated.getPurchaseDate());
         if (updated.getNotes() != null) existing.setNotes(updated.getNotes());
         // 细水长流·按次

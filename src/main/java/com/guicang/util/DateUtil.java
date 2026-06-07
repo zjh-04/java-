@@ -5,7 +5,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
 /**
- * 日期工具类 — 从原项目适配，去掉 Swing 无关方法
+ * 日期工具类
  */
 public class DateUtil {
 

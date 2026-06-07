@@ -709,9 +709,6 @@
             display: none;
         }
         .price-feedback-bar.active { display: block; }
-        .price-feedback-bar.active {
-            display: block;
-        }
 
         .card-action-row {
             display: flex;
