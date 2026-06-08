@@ -20,6 +20,8 @@
 | `--input-bg` | `#2C2F33` | 输入框底 |
 | `--border-weak` | `rgba(255,255,255,0.06)` | 弱边框 |
 | `--border-mid` | `rgba(255,255,255,0.12)` | 中边框 |
+| `--card-bg` | `#272A2E` | 卡片背景（同 `--bg-surface`） |
+| `--tag-bg` | `rgba(255,255,255,0.08)` | 标签背景 |
 | `--drawer-bg` | `#222528` | 抽屉面板底 |
 | `--progress-bg` | `rgba(255,255,255,0.05)` | 进度条底色 |
 
@@ -40,6 +42,8 @@
 | `--border-mid` | `rgba(34,34,34,0.15)` | |
 | `--drawer-bg` | `#FAF9F5` | |
 | `--progress-bg` | `rgba(34,34,34,0.06)` | |
+| `--card-bg` | `#FFFFFF` | |
+| `--tag-bg` | `rgba(229,186,143,0.2)` | |
 
 ### 跨模式共用色（深浅模式都不变）
 
@@ -73,7 +77,7 @@
 - 宽度：`80px`，固定不缩放（`flex-shrink: 0`）
 - 高度：与 window-container 等高
 - 底色：`var(--sidebar-bg)`
-- 右边框：`1px solid rgba(212,199,176,0.03)`（浅色下 `1.5px solid var(--primary-dark)`）
+- 右边框：`1.5px solid var(--primary-dark)`（手绘炭笔框，深浅模式统一）
 - 内部布局：`display: flex; flex-direction: column; align-items: center`
 - 上内边距：`30px`，下内边距：`0`
 - 元素间距：`gap: 35px`
@@ -125,6 +129,7 @@
 - 底：`var(--input-bg)`，边框：`1px solid rgba(212,199,176,0.05)`
 - 文字：`13px`，颜色 `var(--text-main)`
 - 悬浮：底变 `var(--bg-surface-hover)`，文字变 `var(--text-light)`
+- 菜单项（从上到下）：修改密码 → 导出备份数据（当前仅弹Toast模拟） → 切换账户（设置 `phase='auth'`，无实际logout API） → 退出登录（同切换账户） → 关于「归藏」
 
 ### 页面标题栏 `view-header`
 - 位置：`position: sticky; top: -40px; z-index: 10`
@@ -179,8 +184,8 @@
 - 底色：`var(--bg-canvas)`
 - 层级：`z-index: 9999`
 - 布局：`display: flex; justify-content: center; align-items: center`
-- 淡出：`.fade-out` → `opacity: 0; pointer-events: none; transform: scale(1.01)`，过渡 `0.5s ease`
-- 点击可跳过快进淡出
+- 显示/隐藏：由 Vue `v-if="phase==='welcome'"` 控制渲染/销毁，点击可跳过（3.2秒后自动跳转）
+- CSS `.fade-out` 类定义存在但未在模板中使用（Vue 直接切换 phase 控制元素消失）
 
 ### 欢迎页标题
 - 字体：`"Noto Serif SC", "思源宋体", serif`
@@ -201,10 +206,10 @@
 - 定位：`position: absolute; top: 0; left: 0; width: 100%; height: 100%`
 - 底色：`var(--bg-canvas)`，层级：`z-index: 500`
 - 布局：`display: flex; justify-content: center; align-items: center`
-- 隐藏：`.hidden` → `opacity: 0; pointer-events: none; transform: scale(1.02)`，过渡 `0.4s ease`
+- 隐藏：由 Vue `v-if="phase==='auth'"` 控制渲染/销毁（CSS `.hidden` 类定义存在但未使用）
 
 ### 面板卡片 `auth-card`
-- 宽度：`400px`
+- 宽度：`380px`
 - 底：`var(--bg-surface)`
 - 边框：`1px solid var(--border-weak)`，圆角 `10px`（手绘覆写为不对称圆角 `255px 15px 225px 15px / 15px 225px 15px 255px`）
 - 内边距：`padding: 40px`
@@ -254,7 +259,7 @@
 - 标题 h3：`margin: 0 0 16px 0; font-size: 16px; color: var(--text-light)`
 
 ### 物语条目 `timeline-item`
-- 布局：`display: flex; gap: 20px; margin-bottom: 18px` 【修改】你检查一下html有这个东西吗
+- 布局：`display: flex; gap: 20px; margin-bottom: 18px`（HTML 中存在，由 `v-for` 遍历 `insights` 数组动态渲染）
 
 ### 物语圆点 `timeline-icon`
 - 尺寸：`10px × 10px`，圆形
@@ -402,7 +407,7 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 - 单位 "/ 天"：14px，`var(--muted)`
 - 铜绿变色条件：日均成本 < ¥10 时触发 `status-perfect`
 
-**文案**（固定）："每一天的陪伴都在悄悄降低它的持有成本。不需要刻意记录，时间会帮你说清一切。"
+**文案**（固定）："每一天的陪伴都在悄悄降低它的持有成本。"（精简版，去掉了第二句"不需要刻意记录，时间会帮你说清一切"）
 
 **操作栏**：
 - 历史轨迹、归档、删除（同按次型）
@@ -437,7 +442,7 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 
 **核心数字区**：**无**（不计算成本分摊）
 
-**文案**（固定）："它静静地躺在首饰盒里，每一次目光停留都是对它的珍视。不计较每天值多少钱，只在意它一直在身边。"
+**文案**（固定）："每一次目光停留，都像是和自己的一次小小确认。"
 
 **操作栏**：
 - 历史轨迹、归档、删除（同其他类型）
@@ -483,7 +488,7 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 
 **操作栏**：
 - 左：文字显示"库存剩 X 箱 (安全线 Y 箱)"
-- 右（6个按钮）：
+- 右（5个按钮）：
   1. 历史轨迹（时钟图标）
   2. 归档（箱子图标，warning色）
   3. 删除（垃圾桶图标，danger色）
@@ -632,8 +637,8 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 ### 抽屉面板 `drawer-content`
 - 宽度：`420px`，高度：`100%`
 - 底：`var(--bg-surface)`，左边框：`1.5px solid var(--primary-dark)`
-- 内边距：`padding: 35px 40px`
-- 布局：`display: flex; flex-direction: column; gap: 20px`
+- 内边距：`padding: 28px 36px`
+- 布局：`display: flex; flex-direction: column; gap: 14px`
 - 初始：`transform: translateX(100%)`（藏在右侧屏幕外）
 - 打开：`.modal-overlay.open .drawer-content` → `transform: translateX(0)`
 - 过渡：`0.3s cubic-bezier(0.25, 0.8, 0.25, 1)`
@@ -645,15 +650,15 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 - 标签：`font-size: 13px; color: var(--muted)`
 
 ### 表单行 `form-row`
-- 布局：`display: flex; gap: 12px`，子元素 `flex: 1`
+- 布局：`display: flex; gap: 20px`，子元素 `flex: 1`
 
 ### 分段控制器 `segmented-control`
 - 底：`var(--input-bg)`，边框：`1.5px solid var(--primary-dark)`，圆角 8px
-- 内边距 4px，gap 2px
+- 内边距 5px，gap 3px
 
 ### 分段按钮 `segment-btn`
-- `flex: 1`，`padding: 9px 0`，居中
-- 字号：11px，font-weight 600，颜色 `var(--muted)`
+- `flex: 1`，`padding: 10px 0`，居中
+- 字号：12px，font-weight 600，颜色 `var(--muted)`
 - 激活：底 `var(--primary)`，文字 `var(--primary-dark)`，font-weight 700
 
 ### 图标选择器
@@ -716,7 +721,7 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
   - 解锁态底 `rgba(234,210,172,0.25)`，颜色 `#B38650`
 - 进度条 `ach-progress-bar`：`height: 3px`，底 `var(--progress-bg)`，圆角 2px
   - 填充 `ach-progress-inner`：底 `var(--primary)`，解锁态变 `#B38650`，过渡 `width 0.5s ease`
-- 分类标题 `ach-category-title`：`grid-column: span 3`，`font-size: 14px`，`color: var(--text-light)`，margin-top 8px，下划线分隔
+- 分类标题 `ach-category-title`：`grid-column: 1 / -1`（横跨整行），`font-size: 14px`，`color: var(--text-light)`，margin-top 8px，下划线分隔
 
 ---
 
@@ -743,7 +748,8 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 |------|---------|---------|
 | 单次成本 = 购入价格 ÷ 使用次数 | 价格：asset.purchasePrice；次数：asset.usageCount | 每次打卡 |
 | 成本比例 ratio = 单次成本 ÷ 购入价格 | 同上 | 每次打卡 |
-| 日均成本 = 【修改】这里应该是一种按次和 按天的某种平均
+| 日均成本（按天资产）= 购入价格 ÷ 已持有天数 | 价格：asset.purchasePrice；天数：getDaysHeld() | 页面加载（自然递增） |
+| 大盘日均（仪表盘） = 所有 LONT_TERM 资产（按次+按天）的 (购入价格 ÷ 持有天数) 求算术平均 | 所有 LONG_TERM_PER_USE + LONG_TERM_PER_DAY 资产 | 每次操作后 |
 | 库存 = 入库总量 - 消耗总量 | 入库：ΣpurchaseBatches；消耗：ΣusageLogs(消耗) | 每次消耗/补货 |
 | 综合均价 = Σ批次总金额 ÷ Σ批次数量 | 所有 purchaseBatches | 每次补货 |
 | 续费剩余天数 = nextBillingDate - today | nextBillingDate | 页面加载 |
@@ -756,7 +762,7 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 
 ## 十五、成就系统
 
-### 成就数据结构（33条，7大类）
+### 成就数据结构（36条，7大类）
 
 每个成就包含：ID（如a01）、分类、图标（FontAwesome class）、名称、描述、目标值。
 
@@ -764,13 +770,13 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 
 **细水长流（6条）**：初次相遇（打卡1次）→ 常伴左右（10次）→ 习惯成自然（30次）→ 百次相伴（100次）→ 物尽其用（单次成本≤原价10%）→ 日积月累（按天陪伴超365天）。
 
-**储备幸福（7条）**：未雨绸缪（拥有1件囤货）→ 满载而归（完成1次补货）→ 库存告急（库存低于安全线）→ 弹尽粮绝（库存为0）→ 仓廪丰实（3件以上囤货）→ 温柔相遇（触发1次史低价）→ 砍价高手（触发3次史低价）。
+**储备幸福（8条）**：未雨绸缪（拥有1件囤货）→ 满载而归（完成1次补货）→ 库存告急（库存低于安全线）→ 弹尽粮绝（库存为0）→ 仓廪丰实（3件以上囤货）→ 温柔相遇（触发1次史低价）→ 砍价高手（触发3次史低价）→ 高价也从容（补货单价高于历史最高价）。
 
 **收藏纪念（4条）**：珍视之物（1件收藏）→ 岁月珍藏（陪伴30天）→ 传家之宝（陪伴365天）→ 物语收藏家（3件以上收藏）。
 
 **数字订阅（6条）**：初试订阅（1个订阅）→ 数字游民（3个以上）→ 精打细算（暂停/归档1个）→ 终身相伴（1个永久有效）→ 储值达人（2个以上储值卡）→ 订阅掌控者（同时有续费+按量+永久+储值4种）。
 
-**资产总览（3条）**：万元户（总价值≥¥10,000）→ 资产丰盈（≥¥50,000）→ 多元配置（同时有实体+数字+收藏3种）。
+**资产总览（5条）**：万元户（总价值≥¥10,000）→ 资产丰盈（≥¥50,000）→ 多元配置（同时有实体+数字+收藏3种）→ 仓库管理员（仓库中有过1件归档物品）→ 全面掌控（解锁全部5种资产类型）。
 
 **里程碑（3条）**：日省一文（1件物品单次成本<¥1）→ 日省百文（3件物品单次成本<¥10）→ 归藏大师（共解锁25个成就）。
 
@@ -780,7 +786,7 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 
 ### 成就卡片DOM结构
 
-- 分类标题：`ach-category-title`，字号14px，font-weight 600，颜色 `var(--text-light)`，横跨整行（`grid-column: span 3`），margin-top 8px，下划线分隔
+- 分类标题：`ach-category-title`，字号14px，font-weight 600，颜色 `var(--text-light)`，横跨整行（`grid-column: 1 / -1`），margin-top 8px，下划线分隔
 - 每卡内部布局：上方横向flex（图标40×40px圆角8px + 名称+描述），下方进度条+进度文字
 - 已解锁状态：extra边框 `rgba(180,134,80,0.2)`（焦糖金），图标底 `rgba(234,210,172,0.25)` 颜色 `#B38650`，进度填充 `#B38650`
 - 未解锁状态：`opacity: 0.35; filter: grayscale(0.6)`，图标底 `rgba(34,34,34,0.04)` 颜色 `var(--muted)`
@@ -806,7 +812,7 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 - 单条Toast：宽度340px，底 `var(--bg-surface)`，圆角8px，左边框4px强调色
 - 类型与颜色：success 绿 `var(--success)`、warning 琥珀 `var(--warning)`、danger 红 `var(--danger)`、info 默认奶茶 `var(--primary)`
 - 入场动画：从右平移入 `slideIn 0.3s cubic-bezier(0.1,0.9,0.2,1)`
-- 自动消失：4秒后 opacity 变0 + translateX 右移，过渡0.4秒，然后 remove 掉DOM
+- 自动消失：3.5秒后（`setTimeout 3500ms`）触发移除动画（opacity 变0 + translateX 右移），过渡0.4秒后 remove DOM
 - 支持手动关闭按钮
 
 ---
@@ -825,8 +831,8 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 ## 十九、头像选择面板
 
 - 触发：点击用户抽屉内的圆形头像
-- 位置：`position: absolute; top: 0; left: 80px`（浮在用户抽屉右侧），width 260px
-- 底：`var(--drawer-bg)`，边框 `1px solid rgba(212,199,176,0.12)`，圆角12px，内边距18px 16px
+- 类型：`pop-modal-overlay` + `pop-modal-content`（居中浮层，非侧边绝对定位）
+- 底：`var(--bg-surface)`，边框 `1px solid var(--border-weak)`，圆角10px，内边距24px（由 `.pop-modal-content` 统一样式控制；CSS 中 `.avatar-picker-panel` 类定义存在但未被模板使用）
 - 网格：`display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px`（4列）
 - 每选项：48×48px 圆形，底 `var(--bg-surface)`，边框 2px transparent
 - 选中态：边框 `#B38650`（焦糖金）
@@ -838,12 +844,12 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 
 ## 二十、编辑元数据弹窗
 
-- 触发：双击任意卡片的标题区域
-- 类型：`pop-modal-overlay` + `pop-modal-content`（宽400px）
-- 标题："修改资产信息"，图标 `fa-pen-to-square` 奶茶色
-- 字段：名称、价格、购入日期（datepicker）、资产类型（只读灰色不可修改）、备注
-- 隐藏字段：`editCardId` 记录当前编辑的卡片ID
-- 提交后：更新卡片DOM中的名称、价格文本；更新购入日期并重新计算陪伴天数
+- 触发：双击任意卡片的标题区域 → 调用 `openEditAsset(a)` 打开右侧新建抽屉并切换到编辑模式
+- 类型：复用 `modal-overlay` + `drawer-content`（右侧滑入抽屉，宽420px），`editAsset` 存在时标题显示"编辑资产信息"
+- 表单字段：名称、价格、购入日期、图标、备注——全部回填当前值
+- 资产类型：只读灰色锁定（不可修改），显示当前类型名称
+- 子类型字段（分摊维度/储值方式/计费模式等）：只读锁定（不可修改）
+- 提交后：调用 `api.updateAsset(id, payload)` 更新后端 → `loadAll()` 全量刷新前端显示
 
 ---
 
@@ -892,27 +898,20 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 
 ## 二十四、所有弹窗清单
 
-| 弹窗ID | 宽度 | 触发方式 | 内容 |
+| 弹窗/组件 | 宽度 | 触发方式 | 内容 |
 |--------|------|---------|------|
-| `addDrawer` | 420px | 点"添置新物"或仪表盘快速按钮或双击卡片编辑 | 新建/编辑表单（含5种模式动态面板） |
+| `addDrawer` | 420px | 点"添置新物"或仪表盘快速按钮 | 新建资产表单（5种模式分段控制器切换） |
+| `addDrawer`（编辑模式） | 420px | 双击卡片标题区域 | 编辑资产信息（类型只读锁定） |
 | `historyDrawer` | 380px | 点卡片上的历史轨迹按钮 | 生命周期时间轴 |
-| `deleteConfirmModal` | 330px | 点卡片上的垃圾桶按钮 | 二次确认删除，border-color rgba(201,138,138,0.35) |
-| `archiveConfirmModal` | 330px | 点卡片上的归档按钮 | 二次确认归档，border-color rgba(245,158,11,0.3) |
-| `confirmActionModal` | 330px | 切换账户/退出登录/退出应用等 | 通用确认弹窗，按钮颜色可定制 |
-| `editMetaModal` | 400px | 双击卡片标题 | 修改名称/价格/日期 |
-| `quickBuyModal` | 330px | 点囤货卡片补货按钮 | 总金额+数量，提交后比价反馈 |
-| `apiChargeModal` | 330px | 点按量计费卡片充值按钮 | 追加充值金额 |
-| `apiConsumeModal` | 330px | 点按量计费卡片消耗按钮 | 消耗金额，余额不足拒绝 |
-| `gymTopupModal` | 330px | 点健身卡充值按钮 | 金额+次数 |
-| `spaTopupModal` | 330px | 点SPA卡充值按钮 | 金额+次数 |
-| `dinerTopupModal` | 330px | 点餐厅卡充值按钮 | 充值金额 |
-| `dinerSpendModal` | 330px | 点餐厅卡消费按钮 | 消费金额，余额不足拒绝 |
-| `nicknameModal` | 330px | 点昵称铅笔图标 | 修改个性昵称 |
-| `passwordModal` | 330px | 点"修改密码"菜单 | 旧密码+新密码+确认 |
+| `confirmModal`（删除/归档） | 330px | 点卡片上的垃圾桶/归档按钮 | 二次确认，共享 `confirmOpen` 状态，由 `confirmType` 区分 |
+| `formModal`（通用快捷操作） | 330px | 点卡片的补货/充值/核销/消费按钮 | 由 `formModalMode` 区分：`restock`（补货）、`topup_time`（次卡充值）、`topup_amount`（量卡充值）、`spend`（消费） |
+| `avatarPicker` | 330px | 点用户抽屉头像 | 8个图标选择网格（4列） |
+| `nicknameModal` | 330px | 点昵称旁的铅笔图标 | 修改个性昵称 |
+| `passwordModal` | 330px | 点"修改密码"菜单按钮 | 旧密码+新密码+确认密码 |
 
-所有 `pop-modal-overlay` 弹窗共享：`position: absolute`、铺满 window-container、`rgba(0,0,0,0.5)` 半透明黑遮罩、`z-index: 300`。点击遮罩层关闭弹窗（由各弹窗自己的 close 函数控制，不是统一的遮罩点击关闭）。
+所有 `pop-modal-overlay` 弹窗共享：`position: absolute`、铺满 window-container、`rgba(0,0,0,0.5)` 半透明黑遮罩、`z-index: 300`。点击遮罩层自身关闭（`@click.self="xxx=false"`）。
 
-`addDrawer` 和 `historyDrawer` 是 `modal-overlay` 类型（右侧滑入抽屉，`z-index: 100`），点击遮罩层自身关闭（`onclick="if(event.target===this) close()"`）。
+`addDrawer` 和 `historyDrawer` 是 `modal-overlay` 类型（右侧滑入抽屉，`z-index: 100`），点击遮罩层自身关闭。
 
 ---
 
@@ -920,7 +919,7 @@ ratio = (购入价格 ÷ 使用次数) ÷ 购入价格
 
 每次操作后调用 `refreshInsightAndAchievements()`：
 1. `updateAllDays()` — 重新计算所有物品的陪伴天数，更新卡片上的"已陪伴X天"标签和大盘物语中的天数
-2. `checkAchievements()` — 遍历33条成就定义，根据当前数据计算current值，更新成就网格中的进度条和文字，统计已解锁数
+2. `checkAchievements()` — 遍历36条成就定义，根据当前数据计算current值，更新成就网格中的进度条和文字，统计已解锁数
 3. 更新侧边栏统计数字（物品件数、成就数、总价值）
 
 **各成就的 current 计算逻辑**：

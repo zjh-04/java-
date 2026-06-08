@@ -62,7 +62,7 @@ public class InsightService {
 
                     if (days < 30) {
                         list.add(insight("info", "初见不久",
-                                String.format("「%s」才来了 %s 天，还在慢慢融入你的日常。不急，好的陪伴都是细水长流的。",
+                                String.format("「%s」才来了 %s 天，还在慢慢融入你的日常。好的陪伴都是细水长流的。",
                                         hl(a.getName()), hl(String.valueOf(days)))));
                     } else if (days >= 30 && days < 100 && daily > 20) {
                         list.add(insight("info", "慢慢熟悉中",

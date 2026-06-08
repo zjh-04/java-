@@ -218,7 +218,7 @@ const f_storeType = ref('time'); const f_cardTimes = ref(20); const f_cardConsum
 const f_subType = ref('fixed'); const f_subCycle = ref('按月续费'); const f_subNextDate = ref(new Date().toISOString().slice(0,10)); const f_apiBalance = ref(100);
 const f_err = ref('');
 const ICONS = ['fa-solid fa-shirt','fa-solid fa-gem','fa-solid fa-box','fa-solid fa-boxes-stacked','fa-solid fa-credit-card','fa-solid fa-camera','fa-solid fa-mobile-screen','fa-solid fa-film','fa-solid fa-microchip','fa-solid fa-cloud','fa-solid fa-dumbbell','fa-solid fa-spa','fa-solid fa-utensils','fa-solid fa-infinity','fa-solid fa-book','fa-solid fa-paintbrush','fa-solid fa-headphones','fa-solid fa-laptop','fa-solid fa-tv','fa-solid fa-gamepad','fa-solid fa-clock','fa-solid fa-wine-glass','fa-solid fa-mug-hot','fa-solid fa-bicycle','fa-solid fa-campground','fa-solid fa-wand-sparkles','fa-solid fa-heart','fa-solid fa-star','fa-solid fa-gift','fa-solid fa-wrench'];
-const DEFAULT_ICONS = { longterm:'fa-solid fa-box', stockpile:'fa-solid fa-box', recordOnly:'fa-solid fa-gem', storedCard:'fa-solid fa-credit-card', digitalSub:'fa-solid fa-microchip' };
+const DEFAULT_ICONS = { longterm:'fa-solid fa-box', stockpile:'fa-solid fa-boxes-stacked', recordOnly:'fa-solid fa-gem', storedCard:'fa-solid fa-credit-card', digitalSub:'fa-solid fa-microchip' };
 
 // ==================== 抽屉：新建 vs 编辑 ====================
 // 价格联动：购入价变化时，自动同步到子字段（除非子字段已被手动编辑过）

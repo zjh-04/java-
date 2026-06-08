@@ -1,44 +1,195 @@
-# 「归藏」— 个人资产管理
+# 「归藏」— 个人资产管理手账
 
-「归藏」—— 此间安放 · 此身相伴 · 此心所系
+> **v1.0 · 此间安放 · 此身相伴 · 此心所系**
 
-## 1. 项目架构
+---
+
+## 一、程序功能概述
+
+「归藏」是一款**桌面端个人资产管理工具**，帮助用户以有温度的方式记录、追踪、盘点自己所拥有的物品与数字订阅。核心理念是"万物归而藏之"——通过陪伴打卡、成本均摊、库存预警等机制，让用户感知每一件物品的陪伴价值，践行克制消费与断舍离的生活美学。
+
+### 核心业务场景
+
+| 场景 | 描述 |
+|------|------|
+| **长期物品追踪** | 记录衣服/数码产品等，按使用次数或持有天数计算单次/日均成本，打卡陪伴 |
+| **囤货库存管理** | 管理日用品等消耗品库存，多批次补货、均价计算、价格区间比对 |
+| **收藏品记录** | 纯陪伴追踪（不计成本），支持"日常使用中/完美珍藏中/计划转手中"三态切换 |
+| **数字订阅管理** | 管理 Netflix/iCloud 等周期续费订阅，自动续费倒计时，剩余天数预警 |
+| **储值卡管理** | 健身次卡/餐厅储值卡等，按次核销或按金额消费，余额预警 |
+| **资产总览** | 月度固定流速、日均均摊、按量计费注资总额、总资产价值一目了然 |
+| **成就系统** | 36 项成就（7 大类），从"初识资产"到"归藏大师"，激励持续记录 |
+| **智能洞察** | 今日物语：自动生成陪伴天数提醒、库存预警、续费倒计时等个性化洞察 |
+
+---
+
+## 二、产品特色
+
+- **手绘美学风格**：手绘风设计语言——不对称圆角、炭笔边框、硬纸叠阴影、蜡笔涂抹底色，视觉友好，深色"柔墨砚"模式 + 浅色"燕麦奶白"模式
+- **便捷的操作模式**：多种快捷按钮设计/双击名称即可编辑/直观可视化，使记录更省力
+- **阈值驱动的 UI 变化**：不同使用次数/成本比例对应不同的温暖文案、颜色、标签、进度条变化
+- **成就激励体系**：36 项成就分 7 大类
+
+---
+
+## 三、程序模块结构
+
+### 整体架构
 
 ```
-┌─ Swing JFrame (桌面壳) ──────────────────────────────┐
-│  ┌─ JCEF Browser (Chromium 内核) ──────────────────┐  │
-│  │  Vue 3 前端 (src/main/resources/web/index.html)  │  │
-│  │  ┌──────────┐ ┌──────────┐ ┌────────────────┐   │  │
-│  │  │  5 页面   │ │ Reactive │ │  fetch /api/*  │   │  │
-│  │  │ Views     │ │  State   │ │  JS Bridge     │   │  │
-│  │  └──────────┘ └──────────┘ └───────┬────────┘   │  │
-│  └────────────────────────────────────┼────────────┘  │
-│                                       │                │
-│  ┌─ 内嵌 HTTP Server (localhost:18080) ┼───────────┐  │
-│  │  JavaBackend.java (路由分发)       │            │  │
-│  │  ├ UserService / AssetService                   │  │
-│  │  ├ StockpileService / StoredCardService         │  │
-│  │  ├ LongTermService / CollectibleService          │  │
-│  │  ├ SubscriptionService / AchievementService     │  │
-│  │  └ InsightService                               │  │
-│  │         ↓                                        │  │
-│  │  Repository → SQLite (data/assets.db)           │  │
-│  └─────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────┘
+┌─ Swing JFrame (桌面壳, 1040×700) ──────────────────────────┐
+│  ┌─ JCEF Browser (Chromium 内核) ────────────────────────┐  │
+│  │  Vue 3 前端 (index.html + app.js + theme.css)         │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────────────────┐   │  │
+│  │  │  5 页面   │ │ Reactive │ │  bridge.js           │   │  │
+│  │  │  (v-show) │ │  State   │ │  (fetch /api/*)      │   │  │
+│  │  └──────────┘ └──────────┘ └──────────┬───────────┘   │  │
+│  └───────────────────────────────────────┼───────────────┘  │
+│                                          │                   │
+│  ┌─ JDK HttpServer (localhost:18080) ────┼───────────────┐  │
+│  │  App.ApiHandler (路由分发)            │                │  │
+│  │  ├ JavaBackend.java (30+ API 方法)                   │  │
+│  │  ├ Service Layer (8 个服务)                          │  │
+│  │  │   UserService / AssetService / LongTermService     │  │
+│  │  │   StockpileService / CollectibleService            │  │
+│  │  │   SubscriptionService / StoredCardService          │  │
+│  │  │   AchievementService / InsightService              │  │
+│  │  └ Repository Layer (5 个仓库, JDBC)                  │  │
+│  │      UserRepo / AssetRepo / UsageLogRepo              │  │
+│  │      PurchaseBatchRepo / AchievementRepo              │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                          ↓                                  │
+│  SQLite (data/assets.db, 6 张表)                           │
+└────────────────────────────────────────────────────────────┘
 ```
 
-- **前端**：Vue 3 单页应用，无构建工具，直接用 `<script type="module">` + ES import map
-- **后端**：Java 内嵌 HTTP 服务器 (`com.sun.net.httpserver`)，API 返回 JSON
-- **数据库**：SQLite，单文件。IDE 开发时存 `./data/assets.db`；EXE 打包后存 `%APPDATA%\Guicang\data\assets.db`
-- **桌面壳**：Swing + JCEF (Chromium Embedded Framework)，降级方案为系统默认浏览器
+### Java 后端模块（按职责分层）
 
-## 2. 快速开始
+```
+src/main/java/com/guicang/
+├── App.java                      ← 主入口：启动 SQLite → HTTP Server → JCEF 窗口
+│                                   内嵌 ApiHandler + StaticFileHandler
+├── config/                       ← 配置层
+│   ├── AppConfig.java            ← 窗口尺寸、HTTP 端口
+│   └── DatabaseConfig.java       ← SQLite 连接、DDL 执行、数据目录解析
+├── bridge/                       ← API 路由层
+│   └── JavaBackend.java          ← 30+ HTTP API 方法实现
+├── service/                      ← 业务逻辑层（8 个服务）
+│   ├── UserService.java          ← 注册/登录/密码修改/资料更新
+│   ├── AssetService.java         ← 统一 CRUD + 增量更新
+│   ├── LongTermService.java      ← 打卡、成本计算、5 档状态判定
+│   ├── StockpileService.java     ← 库存/批次/均价/比价（事务保护）
+│   ├── CollectibleService.java   ← 收藏三态循环
+│   ├── SubscriptionService.java  ← 自动续费（synchronized 防并发）
+│   ├── StoredCardService.java    ← 次卡/量卡/按量（事务保护）
+│   ├── AchievementService.java   ← 36 成就全量检查
+│   └── InsightService.java       ← 6 类智能洞察生成
+├── repository/                   ← 数据访问层（5 个仓库，原生 JDBC）
+│   ├── UserRepository.java       ← 用户 CRUD + BCrypt 验证
+│   ├── AssetRepository.java      ← 11 种类型统一 SQL 构建
+│   ├── UsageLogRepository.java   ← 操作流水
+│   ├── PurchaseBatchRepository.java ← 采购批次
+│   └── AchievementRepository.java   ← 成就进度 upsert
+├── model/                        ← 数据实体（6 个类）
+│   ├── User.java                 ← 用户（含 BCrypt 密码哈希）
+│   ├── Asset.java                ← 统一资产（25+ 持久字段 + 5 派生字段）
+│   ├── UsageLog.java             ← 操作流水
+│   ├── PurchaseBatch.java        ← 采购批次
+│   ├── Achievement.java          ← 成就定义
+│   └── UserAchievement.java      ← 用户成就进度（含 is_notified）
+└── util/                         ← 工具类
+    ├── DateUtil.java              ← today() / daysBetween() / addDays()
+    ├── Validator.java             ← 用户名/密码格式校验
+    └── Categories.java            ← 物品分类常量
+```
+
+### 前端模块（Vue 3 单文件应用）
+
+```
+src/main/resources/web/
+├── index.html                    ← 全部模板 + Vue 指令（~300 行）
+├── css/theme.css                 ← 全部样式：变量/双主题/组件/手绘覆写（~1260 行）
+└── js/
+    ├── app.js                    ← Vue app 逻辑：setup() / enrich / 操作 / 弹窗（~470 行）
+    ├── api/bridge.js             ← fetch 封装层，30 个 API 导出函数
+    ├── config.js                 ← 常量定义：11 种 AssetType 枚举、阈值、图标映射
+    └── lib/vue.esm-browser.prod.js ← Vue 3 ES Module 运行时（~120KB）
+```
+
+### 数据库表（6 张表）
+
+| 表名 | 说明 |
+|------|------|
+| `users` | 用户：username, password_hash (BCrypt), nickname, email, avatar_index, theme |
+| `assets` | 统一资产表：11 种 asset_type 共用，专属字段可 NULL |
+| `usage_logs` | 操作流水：CHECK_IN / CONSUME / RESTOCK / PUNCH / TOPUP / SPEND 等 |
+| `purchase_batches` | 囤货采购批次：quantity, total_price, batch_date |
+| `achievement_defs` | 成就定义（36 条预置）：a01~a36, name, icon, category, goal_value, level |
+| `user_achievements` | 用户成就进度：progress, is_completed, completed_date, is_notified |
+
+---
+
+## 四、所用技术与依赖
+
+### 技术栈
+
+| 层面 | 技术 | 版本 | 用途 |
+|------|------|------|------|
+| 语言 | Java | 17+ | 后端业务逻辑 |
+| 前端框架 | Vue 3 (ES Module) | 3.x | 响应式 UI，无构建工具 |
+| 桌面壳 | Swing + JCEF | — | JFrame 窗口 + Chromium 内核渲染 |
+| 内嵌浏览器 | JCEF (jcefmaven) | 146.0.10 | Chromium Embedded Framework for Java |
+| HTTP 服务器 | `com.sun.net.httpserver` | JDK 内置 | 内嵌 HTTP，端口 18080 |
+| 数据库 | SQLite (sqlite-jdbc) | 3.53.2.0 | 本地单文件数据库 |
+| JSON | Gson | 2.11.0 | Java ↔ JSON 序列化 |
+| 密码 | jBCrypt | 0.4 | BCrypt 密码哈希 |
+| 构建 | Maven + maven-shade-plugin | 3.6.0 | 依赖管理 + fat-jar 打包 |
+| CSS 图标 | FontAwesome 6.5.1 | CDN | 全部图标（约 2000+ 图标） |
+
+### 第三方依赖及来源
+
+| 依赖 | 来源 | 许可证 | 用途 |
+|------|------|--------|------|
+| [jcefmaven](https://github.com/jcefmaven/jcefmaven) | https://github.com/jcefmaven/jcefmaven | MIT | JCEF Maven 集成，自动管理 Chromium 原生库 |
+| [sqlite-jdbc](https://github.com/xerial/sqlite-jdbc) | https://github.com/xerial/sqlite-jdbc | Apache 2.0 | SQLite JDBC 驱动 |
+| [gson](https://github.com/google/gson) | https://github.com/google/gson | Apache 2.0 | JSON 序列化/反序列化 |
+| [jbcrypt](https://github.com/jeremyh/jBCrypt) | https://github.com/jeremyh/jBCrypt | ISC | BCrypt 密码哈希 |
+| [Vue 3](https://vuejs.org/) | https://vuejs.org/ | MIT | 前端响应式框架 |
+| [FontAwesome 6](https://fontawesome.com/) | https://fontawesome.com/ | CC BY 4.0 (Free) | 图标字体，CDN 加载 |
+
+---
+
+## 五、参考文档
+
+| 文件 | 说明 |
+|------|------|
+| [`chonggou_prd.md`](./chonggou_prd.md) | 全栈重构架构设计文档：完整架构图、数据模型、API 路由表、前后端详细设计 |
+| [`DESIGN.md`](./DESIGN.md) | UI 设计规格说明书：色彩体系、全局尺寸布局、11 种卡片精确设计、手绘风格规范 |
+| `ceshi_original.html` | 原始纯前端原型（mock 数据） |
+| `ceshi_final.html` | 最终 UI 参考实现（理想效果参考） |
+
+---
+
+## 六、未来方向
+- 数据导出
+- 自定义头像
+- 接入常用消费软件自动记录
+- 接入AI智能管理
+- 转向安卓端，手机拍照录入
+
+---
+
+## 七、AI 使用声明
+- 本项目由人工设计所有产品需求、UI呈现和互动体验，调整ai生成的前端效果，检查ai代码的后端问题并进行代码重构。
+- 本项目中使用ai进行了基础代码框架搭建、部分文案/文档书写、调试bug。
+---
+
+## 八、快速开始
 
 ### 环境要求
 
 - **JDK** 17+
 - **Maven** 3.8+
-- **推荐 IDE**：VS Code（已配 `.vscode/launch.json`）或 IntelliJ IDEA（已配 `.idea/`）
 
 ### IDE 中运行
 
@@ -51,21 +202,12 @@
 # 编译
 mvn clean package
 
-# 浏览器模式（秒开，推荐日常开发用）
+# 浏览器模式（秒启动，日常开发推荐）
 java -jar target/guicang-1.0.0.jar --browser
 
 # 桌面窗口模式（JCEF 内嵌 Chromium，首次需下载 ~150MB 原生库）
 java -jar target/guicang-1.0.0.jar
 ```
-
-### 命令行参数
-
-| 参数 | 说明 |
-|------|------|
-| `(无参数)` | 桌面窗口模式：Swing + JCEF 内嵌 Chromium |
-| `--browser` | 浏览器模式：启动 HTTP 服务后自动用系统浏览器打开，右下角托盘图标常驻 |
-| `--no-jcef` | 同 `--browser` |
-| `--help` / `-h` | 显示帮助信息 |
 
 ### 打包为独立 EXE
 
@@ -73,131 +215,21 @@ java -jar target/guicang-1.0.0.jar
 # 1. 编译 fat JAR
 mvn clean package
 
-# 2. 裁剪最小 JRE（约 49MB，无需用户装 Java）
+# 2. 裁剪最小 JRE（约 49MB）
 jlink --add-modules java.base,java.desktop,java.sql,java.naming,jdk.httpserver \
       --output target/jre-min --strip-debug --compress=2 --no-header-files --no-man-pages
 
-# 3. 浏览器版（秒开，托盘图标，无控制台）
+# 3. 浏览器版（托盘图标，秒开）
 jpackage --name "guicang" --input target --main-jar guicang-1.0.0.jar \
          --main-class com.guicang.App --runtime-image target/jre-min \
          --arguments "--browser" --type app-image --dest dist
 
-# 4. 桌面版（JCEF 独立窗口，带控制台查看下载进度）
+# 4. 桌面版（JCEF 独立窗口）
 jpackage --name "guicang-desktop" --input target --main-jar guicang-1.0.0.jar \
          --main-class com.guicang.App --runtime-image target/jre-min \
          --type app-image --dest dist --win-console
 ```
 
-生成在 `dist/` 下，拷贝整个文件夹即可分发到其他 Windows 电脑（无需装 Java）。
-
-| 版本 | 文件夹 | 体验 |
-|------|--------|------|
-| 浏览器版 | `dist/guicang/` | 系统浏览器打开，秒启动，托盘图标退出 |
-| 桌面版 | `dist/guicang-desktop/` | 独立桌面窗口，首次需下载 JCEF 原生库 |
-
-## 3. 项目结构
-
-```
-src/main/java/com/guicang/
-├── App.java                   # 主入口
-├── bridge/JavaBackend.java    # HTTP API 路由分发 → JSON 响应
-├── config/
-│   ├── AppConfig.java         # 窗口尺寸、端口等常量
-│   └── DatabaseConfig.java    # SQLite 初始化与连接管理
-├── model/
-│   ├── Asset.java             # 统一资产实体（11 种 asset_type）
-│   ├── User.java              # 用户实体
-│   ├── Achievement.java       # 成就定义
-│   ├── UserAchievement.java   # 用户成就进度
-│   ├── PurchaseBatch.java     # 囤货采购批次
-│   └── UsageLog.java          # 操作流水
-├── repository/
-│   ├── AssetRepository.java
-│   ├── UserRepository.java
-│   ├── AchievementRepository.java
-│   ├── PurchaseBatchRepository.java
-│   └── UsageLogRepository.java
-├── service/
-│   ├── UserService.java       # 认证与资料管理
-│   ├── AssetService.java      # 资产 CRUD
-│   ├── LongTermService.java   # 长期主义（打卡、日均成本）
-│   ├── StockpileService.java  # 囤货（库存、补货、比价）
-│   ├── StoredCardService.java # 次卡/储值卡（核销、充值）
-│   ├── SubscriptionService.java # 数字订阅（续费倒计时）
-│   ├── CollectibleService.java  # 收藏状态（三态循环）
-│   ├── AchievementService.java  # 成就系统（36 成就）
-│   └── InsightService.java    # 智能洞察
-└── util/
-    ├── DateUtil.java          # 日期计算
-    ├── Validator.java         # 输入校验
-    └── Categories.java        # 物品分类常量
-
-src/main/resources/
-├── db/schema.sql              # DDL + 36 条成就预置数据
-└── web/
-    ├── index.html             # Vue 3 单页应用
-    ├── css/theme.css          # 喜茶手绘风样式（深色/浅色双模式）
-    └── js/
-        ├── app.js             # Vue 组件、API 调用、数据 enrich
-        ├── config.js          # 前端常量
-        ├── api/bridge.js      # fetch 封装
-        └── lib/vue.esm-browser.prod.js  # Vue 3 运行时
-```
-
-## 4. 11 种资产类型
-
-| 类型 | 常量 | 说明 |
-|------|------|------|
-| 细水长流·按次 | `LONG_TERM_PER_USE` | 按使用次数分摊成本 |
-| 细水长流·按天 | `LONG_TERM_PER_DAY` | 按持有天数均摊成本 |
-| 储备幸福 | `STOCKPILE` | 囤货库存管理、多批次均价、比价 |
-| 收藏状态 | `COLLECTIBLE` | 纯陪伴追踪，三态循环（使用中/珍藏中/转手中） |
-| 周期续费·按月 | `SUBSCRIPTION_MONTHLY` | 固定周期扣费订阅 |
-| 周期续费·按季 | `SUBSCRIPTION_QUARTERLY` | |
-| 周期续费·按年 | `SUBSCRIPTION_YEARLY` | |
-| 按量计费 | `SUBSCRIPTION_METERED` | 弹性计费，余额管理 |
-| 永久有效 | `SUBSCRIPTION_LIFETIME` | 买断制 |
-| 储值次卡 | `STORED_TIME_CARD` | 按次数消耗 |
-| 储值量卡 | `STORED_AMOUNT_CARD` | 按金额消费 |
-
-## 5. API 路由
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/login` | 登录 |
-| POST | `/api/register` | 注册 |
-| GET | `/api/session` | 当前会话用户 |
-| GET/POST | `/api/assets` | 列表 / 创建资产 |
-| GET | `/api/assets/archived` | 已归档资产 |
-| GET/PUT/DELETE | `/api/assets/{id}` | 单资产 CRUD |
-| POST | `/api/assets/{id}/check-in` | 打卡 |
-| POST | `/api/assets/{id}/consume` | 消耗 |
-| POST | `/api/assets/{id}/restock` | 补货 |
-| POST | `/api/assets/{id}/punch` | 次卡核销 |
-| POST | `/api/assets/{id}/topup` | 充值 |
-| POST | `/api/assets/{id}/spend` | 消费 |
-| PUT | `/api/assets/{id}/status` | 切换收藏状态 |
-| POST | `/api/assets/{id}/compare` | 比价 |
-| GET | `/api/assets/{id}/history` | 操作历程 |
-| POST | `/api/assets/{id}/archive` | 归档 |
-| POST | `/api/assets/{id}/restore` | 恢复 |
-| GET | `/api/dashboard` | 仪表盘数据 |
-| GET | `/api/achievements` | 成就列表 |
-| GET | `/api/insights` | 智能洞察 |
-| GET/POST | `/api/config` | 读取/修改配置 |
-| GET | `/api/export` | 导出备份 |
-
-## 6. 参考文档
-
-| 文件 | 说明 |
-|------|------|
-| `chonggou_prd.md` | 全栈重构架构设计文档：架构图、数据模型、API 路由、重构策略 |
-| `DESIGN.md` | UI 设计规格：色彩体系、手绘风组件规范、卡片布局 |
-| `ceshi_original.html` | 原始纯前端原型（mock 数据） |
-| `ceshi_final.html` | 最终 UI 参考实现（理想效果参考） |
-
-> UI 调整时先看 `ceshi_final.html` 的预期效果，再到 `index.html` 里实现。
-
 ---
 
-*最后更新：2026-06-06*
+*最后更新：2026-06-08*
